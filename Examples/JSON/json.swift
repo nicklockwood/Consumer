@@ -6,106 +6,110 @@
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
 //
 
-import Foundation
+// MARK: API
 
-// JSON elements
-enum Key: String {
+/// JSON parsing errors
+public enum JSONError: Error {
+    case invalidNumber(String)
+    case invalidCodePoint(String)
+}
+
+/// JSON parser
+public func parseJSON(_ input: String) throws -> Any {
+    let match = try json.match(input)
+    return try match.transform(jsonTransform)!
+}
+
+// MARK: Implementation
+
+// Labels
+private enum Label: String {
     case null
-    case bool
+    case boolean
     case number
     case string
     case json
     case array
     case object
+
     // Internal types
     case unichar
     case keyValue
 }
 
-// JSON consumer
-let space: Consumer<Key> = .discard(.zeroOrMore(.charInString(" \t\n\r\r\n")))
-let null: Consumer<Key> = .label(.null, .string("null"))
-let bool: Consumer<Key> = .label(.bool, .anyString(["true", "false"]))
-let digit: Consumer<Key> = .charInRange("0", "9")
-let number: Consumer<Key> = .label(.number, .sequence([
-    .optional(.string("-")),
-    .anyOf([
-        .string("0"),
-        .sequence([
-            .charInRange("1", "9"),
-            .zeroOrMore(digit),
-        ]),
-    ]),
-    .optional(.sequence([
-        .string("."),
-        .oneOrMore(digit),
-    ])),
+// Consumers
+private let space: Consumer<Label> = .discard(.zeroOrMore(.charInString(" \t\n\r")))
+private let null: Consumer<Label> = .label(.null, "null")
+private let boolean: Consumer<Label> = .label(.boolean, "true" | "false")
+private let digit: Consumer<Label> = .charInRange("0", "9")
+private let number: Consumer<Label> = .label(.number, .flatten([
+    .optional("-"),
+    "0" | [.charInRange("1", "9"), .zeroOrMore(digit)],
+    .optional([".", .oneOrMore(digit)]),
+    .optional(["e" | "E", .optional("+" | "-"), .oneOrMore(digit)]),
 ]))
-let hexdigit: Consumer<Key> = .anyOf([
-    digit, .charInRange("a", "f"), .charInRange("A", "F"),
-])
-let string: Consumer<Key> = .label(.string, .sequence([
-    .discard(.string("\"")),
-    .zeroOrMore(.anyOf([
-        .replace(.string("\\\""), "\""),
-        .replace(.string("\\\\"), "\\"),
-        .replace(.string("\\/"), "/"),
-        .replace(.string("\\b"), "\u{8}"),
-        .replace(.string("\\f"), "\u{C}"),
-        .replace(.string("\\n"), "\n"),
-        .replace(.string("\\r"), "\r"),
-        .replace(.string("\\r\\n"), "\r\n"),
-        .replace(.string("\\t"), "\t"),
-        .label(.unichar, .sequence([
-            .discard(.string("\\u")),
+private let hexdigit: Consumer<Label> = digit | .charInRange("a", "f") | .charInRange("A", "F")
+private let string: Consumer<Label> = .label(.string, [
+    .discard("\""),
+    .zeroOrMore(.any([
+        .replace("\\\"", "\""),
+        .replace("\\\\", "\\"),
+        .replace("\\/", "/"),
+        .replace("\\b", "\u{8}"),
+        .replace("\\f", "\u{C}"),
+        .replace("\\n", "\n"),
+        .replace("\\r", "\r"),
+        .replace("\\t", "\t"),
+        .label(.unichar, .flatten([
+            .discard("\\u"),
             hexdigit, hexdigit, hexdigit, hexdigit,
         ])),
         .charInRange(UnicodeScalar(0)!, "!"), // Up to "
         .charInRange("#", UnicodeScalar(0x10FFFF)!), // From "
     ])),
-    .discard(.string("\"")),
-]))
-let array: Consumer<Key> = .label(.array, .sequence([
-    .discard(.string("[")),
-    .optional(.interleaved(.reference(.json), ",")),
-    .discard(.string("]")),
-]))
-let object: Consumer<Key> = .label(.object, .sequence([
-    .discard(.string("{")),
-    .optional(.interleaved(.label(.keyValue, .sequence([
-        space,
-        string,
-        space,
-        .discard(.string(":")),
+    .discard("\""),
+])
+private let array: Consumer<Label> = .label(.array, [
+    .discard("["),
+    .optional(.interleaved(
         .reference(.json),
-    ])), ",")),
-    .discard(.string("}")),
-]))
-let json: Consumer<Key> = .label(.json, .sequence([
+        .discard(",")
+    )),
+    .discard("]"),
+])
+private let object: Consumer<Label> = .label(.object, [
+    .discard("{"),
+    .optional(.interleaved(
+        .label(.keyValue, [
+            space,
+            string,
+            space,
+            .discard(":"),
+            .reference(.json),
+        ]),
+        .discard(",")
+    )),
+    .discard("}"),
+])
+private let json: Consumer<Label> = .label(.json, [
     space,
-    .anyOf([bool, null, number, string, object, array]),
+    boolean | null | number | string | object | array,
     space,
-]))
+])
 
-// JSON parsing errors
-enum JSONError: Error {
-    case invalidNumber(String)
-    case invalidCodePoint(String)
-}
-
-// JSON tranform
-let jsonTransform: (Key, Any) throws -> Any? = { name, value in
+// Transform
+private let jsonTransform: Consumer<Label>.Transform = { name, value in
     switch name {
     case .json:
         return (value as! [Any]).first
-    case .bool:
-        return value as? String == "true"
+    case .boolean:
+        return value as! String == "true"
     case .null:
         return nil as Any? as Any
     case .string:
         return (value as! [String]).joined()
     case .number:
-        let value = (value as! [String]).joined()
+        let value = value as! String
         guard let number = Double(value) else {
             throw JSONError.invalidNumber(value)
         }
@@ -118,7 +122,7 @@ let jsonTransform: (Key, Any) throws -> Any? = { name, value in
         let value = value as! [Any]
         return (value[0] as! String, value[1])
     case .unichar:
-        let value = (value as! [String]).joined()
+        let value = value as! String
         guard let hex = UInt32(value, radix: 16),
             let char = UnicodeScalar(hex) else {
             throw JSONError.invalidCodePoint(value)

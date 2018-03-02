@@ -17,9 +17,8 @@
     - [Common Transforms](#common-transforms)
     - [Typed Labels](#typed-labels)
     - [Forward References](#forward-references)
-- [Example Projects](#example-projects)
-    - [JSON](#json)
-    - [BASIC](#basic)
+    - [Syntax Sugar](#syntax-sugar)
+- [JSON Example](#json-example)
 
 
 # Introduction
@@ -117,10 +116,10 @@ do {
 }
 ```
 
-We've introduced another bug though - Although leading zeros are correctly rejected, `0` on its own will now also be rejected since it doesn't start with 1 - 9. We need to accept *either* zero on its own, *or* the sequence we just defined. For that, we can use `anyOf`:
+We've introduced another bug though - Although leading zeros are correctly rejected, `0` on its own will now also be rejected since it doesn't start with 1 - 9. We need to accept *either* zero on its own, *or* the sequence we just defined. For that, we can use `any`:
 
 ```swift
-let integer: Consumer<String> = .anyOf([
+let integer: Consumer<String> = .any([
     .string("0"),
     .sequence([
         .charInRange("1", "9"),
@@ -140,7 +139,7 @@ let nonzeroInteger: Consumer<String> = .sequence([
     .oneToNine, .zeroOrMore(zeroToNine),
 ])
 
-let integer: Consumer<String> = .anyOf([
+let integer: Consumer<String> = .any([
     zero, nonzeroInteger,
 ])
 ```
@@ -148,7 +147,7 @@ let integer: Consumer<String> = .anyOf([
 We can then further extend this with extra rules, e.g.
 
 ```swift
-let sign = .charInString("-+")
+let sign = .any(["+", "-"])
 
 let signedInteger: Consumer<String> = .sequence([
     .optional(sign), integer,
@@ -190,7 +189,7 @@ Match.node([
 
 Because each digit in the number was matched individually, the result has been returned as an array of tokens, rather than a single token representing the entire number. This level of detail is potentially useful for some applications, but we don't need it right now - we just want to get the value. To do that, we need to *transform* the output.
 
-The `Match` type has a method called `transform()` for doing exactly that. The `transform()` method takes a closure argument of type `(_ name: Label, _ value: Any) throws -> Any?` and returns an `Any?` value. The closure is applied recursively to all matched values in order to convert them to whatever form your application needs.
+The `Match` type has a method called `transform()` for doing exactly that. The `transform()` method takes a closure argument of type `Transform`, which has the signature `(_ name: Label, _ value: Any) throws -> Any?`. The closure is applied recursively to all matched values in order to convert them to whatever form your application needs.
 
 Unlike parsing, which is done from the top down, transforming is done from the bottom up. That means that the child nodes of each `Match` will be transformed before their parents, so that all the values passed to the transform closure should have already been converted to the expected types.
 
@@ -205,7 +204,7 @@ The second purpose is for use when tranforming, to identify the type of node to 
 So, to transform the integer result, we must first give it a label, by using the `label` consumer type:
 
 ```swift
-let integer: Consumer<String> = .label("integer", .anyOf([
+let integer: Consumer<String> = .label("integer", .any([
     .string("0"),
     .sequence([
         .charInRange("1", "9"),
@@ -264,7 +263,7 @@ Note that these transforms are applied during the parsing phase, before the `Mat
 Using the `flatten` consumer, we can simplify our integer transform a bit:
 
 ```swift
-let integer: Consumer<String> = .label("integer", .flatten(.anyOf([
+let integer: Consumer<String> = .label("integer", .flatten(.any([
     .string("0"),
     .sequence([
         .charInRange("1", "9"),
@@ -298,14 +297,16 @@ enum MyLabel: String {
 }
 ```
 
-If we now change our code to use this `MyLabel` enum instead of `String`, we not only avoid error prone copying and pasting of string literals, but we eliminate the need for the `default:` clause in the transform function, since Swift can now determine statically that `integer` is the only possible value. The complete code is shown below:
+If we now change our code to use this `MyLabel` enum instead of `String`, we avoid error prone copying and pasting of string literals and we eliminate the need for the `default:` clause in the transform function, since Swift can now determine statically that `integer` is the only possible value. The other nice benefit is that if we add other label types in future, the compiler will warn us if we forget to implement transforms for them.
+
+The complete, updated code for the integer consumer is shown below:
 
 ```swift
 enum MyLabel: String {
     case integer
 }
 
-let integer: Consumer<MyLabel> = .label(.integer, .flatten(.anyOf([
+let integer: Consumer<MyLabel> = .label(.integer, .flatten(.any([
     .string("0"),
     .sequence([
         .charInRange("1", "9"),
@@ -347,7 +348,7 @@ let array: Consumer<String> = .sequence([
     .string("]"),
 ])
 
-let json: Consumer<String> = .anyOf([null, bool, number, string, object, array])
+let json: Consumer<String> = .any([null, bool, number, string, object, array])
 ```
 
 The `array` consumer contains a comma-delimited sequence of `json` values, and the `json` consumer can match any other type, including `array` itself.
@@ -357,7 +358,7 @@ You see the problem? The `array` consumer references the `json` consumer before 
 In order to implement this, we need to make use the `label` and `reference` features. First, we must give the `json` consumer a label so that it can be referenced before it is declared:
 
 ```swift
-let json: Consumer<String> = .label("json", .anyOf([null, bool, number, string, object, array]))
+let json: Consumer<String> = .label("json", .any([null, bool, number, string, object, array]))
 ```
 
 Then we replace `json` inside the `array` consumer with `.reference("json")`:
@@ -369,6 +370,50 @@ let array: Consumer<String> = .sequence([
     .string("]"),
 ])
 ```
+
+## Syntax Sugar
+
+Consumer deliberately doesn't go overboard with custom operators because it can make code that is inscrutable to other Swift developers, however there are a few syntax extensions that can help to make your parser code a bit more readable:
+
+The `Consumer` type conforms to `ExpressibleByStringLiteral` as shorthand for the `.string()` case, which means that instead of writing:
+
+```swift
+let foo: Consumer<String> = .string("foo")
+let foobar: Consumer<String> = .sequence([.string("foo"), .string("bar")])
+```
+
+You can actually just write:
+
+```swift
+let foo: Consumer<String> = "foo"
+let foobar: Consumer<String> = .sequence(["foo", "bar"])
+```
+
+Additionally, `Consumer` conforms to `ExpressibleByArrayLiteral` as a shorthand for `.sequence()`, so instead of:
+
+```swift
+let foobar: Consumer<String> = .sequence(["foo", "bar"])
+```
+
+You can just write:
+
+```swift
+let foobar: Consumer<String> = ["foo", "bar"]
+```
+
+The logical or operator `|` is also overloaded for `Consumer` as an alternative to using `.any()`, so instead of:
+
+```swift
+let fooOrbar: Consumer<String> = .any(["foo", "bar"])
+```
+
+You can write:
+
+```swift
+let fooOrbar: Consumer<String> = "foo" | "bar"
+```
+
+Be careful when using the `|` operator for very complex expressions however, as it can cause Swift's compile time to go up exponentially due to the complexity of type inference. It's best to only use `|` for a small number of cases. If it's more than 4 or 5 you should probably use `any()` instead.
 
 
 # JSON Example

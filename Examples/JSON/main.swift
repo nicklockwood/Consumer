@@ -14,15 +14,14 @@ let input = """
     "foo": true,
     "bar": [0, 1, 2.0, -0.7, null, "hello world"],
     "baz": {
-        "quux": null
+        "quux": 2e-006
     }
 }
 """
 
 do {
-    let match = try json.match(input)
-    let output = try match.transform(jsonTransform)
-    print(output!)
+    let json = try parseJSON(input)
+    print(json)
 } catch {
     print(error)
 }

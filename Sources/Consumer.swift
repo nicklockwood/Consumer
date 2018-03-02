@@ -31,13 +31,15 @@
 //  SOFTWARE.
 //
 
-public indirect enum Consumer<Label: Hashable> {
+// MARK: Consumer
+
+public indirect enum Consumer<Label: Hashable>: Equatable {
     /// Primitives
     case string(String)
-    case codePointIn(CountableClosedRange<UInt32>)
+    case codePoint(CountableClosedRange<UInt32>)
 
     /// Combinators
-    case anyOf([Consumer])
+    case any([Consumer])
     case sequence([Consumer])
     case optional(Consumer)
     case zeroOrMore(Consumer)
@@ -52,32 +54,105 @@ public indirect enum Consumer<Label: Hashable> {
     case reference(Label)
 }
 
+// MARK: Matching
+
 public extension Consumer {
-    /// Composite rules
+    /// Parse input and return matched result
+    func match(_ input: String) throws -> Match {
+        return try _match(input)
+    }
+
+    /// Abstract syntax tree returned by consumer
+    indirect enum Match: Equatable {
+        case named(Label, Match)
+        case token(String, Range<Int>?)
+        case node([Match])
+
+        /// The range of the match in the original source (if known)
+        public var range: Range<Int>? { return _range }
+
+        /// Flatten matched results into a single token
+        public func flatten() -> Match { return _flatten() }
+
+        /// Transform generic AST to application-specific form
+        func transform(_ fn: Transform) rethrows -> Any? {
+            return try _transform(fn)
+        }
+    }
+
+    /// Closure for transforming a Match to an application-specific data type
+    typealias Transform = (_ name: Label, _ value: Any) throws -> Any?
+
+    /// A Parsing error
+    struct Error: Swift.Error {
+        public indirect enum Kind {
+            case expected(Consumer)
+            case unexpectedToken
+            case custom(Swift.Error)
+        }
+
+        public var kind: Kind
+        public var partialMatches: [Match]
+        public var remaining: Substring.UnicodeScalarView?
+        public var offset: Int?
+    }
+}
+
+// MARK: Syntax sugar
+
+extension Consumer: ExpressibleByStringLiteral, ExpressibleByArrayLiteral {
+    /// Create .string() consumer from a string literal
+    public init(stringLiteral: String) {
+        self = .string(stringLiteral)
+    }
+
+    /// Create .sequence() consumer from an array literal
+    public init(arrayLiteral: Consumer...) {
+        self = .sequence(arrayLiteral)
+    }
+
+    /// Converts two consumers into an .any() consumer
+    public static func | (lhs: Consumer, rhs: Consumer) -> Consumer {
+        switch (lhs, rhs) {
+        case let (.any(lhs), .any(rhs)):
+            return .any(lhs + rhs)
+        case let (.any(lhs), rhs):
+            return .any(lhs + [rhs])
+        case let (lhs, .any(rhs)):
+            return .any([lhs] + rhs)
+        case let (lhs, rhs):
+            return .any([lhs, rhs])
+        }
+    }
+}
+
+/// MARK: Composite rules
+
+public extension Consumer {
+    /// Matches a list of one or more of the specified consumer
     static func oneOrMore(_ consumer: Consumer) -> Consumer {
         return .sequence([consumer, .zeroOrMore(consumer)])
     }
 
-    static func anyString(_ string: [String]) -> Consumer {
-        return .anyOf(string.map { .string($0) })
-    }
-
+    /// Matches any character in the specified string
+    /// Note: if the string contains composed characters like "\r\n" then they
+    /// will be treated as a single character, not as individual unicode scalars
     static func charInString(_ string: String) -> Consumer {
-        return .anyOf(string.map { .string(String($0)) })
+        return .any(string.map { .string(String($0)) })
     }
 
+    /// Creates a .codePoint() consumer using UnicodeScalars instead of code points
     static func charInRange(_ from: UnicodeScalar, _ to: UnicodeScalar) -> Consumer {
-        return .codePointIn(min(from.value, to.value) ... max(from.value, to.value))
+        return .codePoint(min(from.value, to.value) ... max(from.value, to.value))
     }
 
+    /// Matches one or more of the specified consumer, interleaved with a separator
     static func interleaved(_ consumer: Consumer, _ separator: Consumer) -> Consumer {
         return .sequence([.zeroOrMore(.sequence([consumer, separator])), consumer])
     }
-
-    static func interleaved(_ consumer: Consumer, _ separator: String) -> Consumer {
-        return interleaved(consumer, .discard(.string(separator)))
-    }
 }
+
+// MARK: Consumer implementation
 
 extension Consumer: CustomStringConvertible {
     /// Human-readable description of what consumer matches
@@ -89,9 +164,9 @@ extension Consumer: CustomStringConvertible {
             return "\(name)"
         case let .string(string):
             return escapeString(string)
-        case let .codePointIn(range):
+        case let .codePoint(range):
             return "\(escapeCodePoint(range.lowerBound)) – \(escapeCodePoint(range.upperBound))"
-        case let .anyOf(consumers):
+        case let .any(consumers):
             switch consumers.count {
             case 1:
                 return consumers[0].description
@@ -110,135 +185,46 @@ extension Consumer: CustomStringConvertible {
             return consumer.description
         }
     }
+
+    /// Equatable implementation
+    public static func == (lhs: Consumer, rhs: Consumer) -> Bool {
+        switch (lhs, rhs) {
+        case let (.string(lhs), .string(rhs)):
+            return lhs == rhs
+        case let (.codePoint(lhs), .codePoint(rhs)):
+            return lhs == rhs
+        case let (.any(lhs), .any(rhs)),
+             let (.sequence(lhs), .sequence(rhs)):
+            return lhs == rhs
+        case let (.optional(lhs), .optional(rhs)),
+             let (.zeroOrMore(lhs), .zeroOrMore(rhs)),
+             let (.flatten(lhs), .flatten(rhs)),
+             let (.discard(lhs), .discard(rhs)):
+            return lhs == rhs
+        case let (.replace(lhs), .replace(rhs)):
+            return lhs.0 == rhs.0 && lhs.1 == rhs.1
+        case let (.label(lhs), .label(rhs)):
+            return lhs.0 == rhs.0 && lhs.1 == rhs.1
+        case let (.reference(lhs), .reference(rhs)):
+            return lhs == rhs
+        case (.string, _),
+             (.codePoint, _),
+             (.any, _),
+             (.sequence, _),
+             (.optional, _),
+             (.zeroOrMore, _),
+             (.flatten, _),
+             (.discard, _),
+             (.replace, _),
+             (.label, _),
+             (.reference, _):
+            return false
+        }
+    }
 }
 
-public extension Consumer {
-    /// Abstract syntax tree returned by consumer
-    indirect enum Match: Equatable {
-        case named(Label, Match)
-        case token(String, Range<Int>?)
-        case node([Match])
-
-        /// The range of the match in the original source (if known)
-        public var range: Range<Int>? {
-            switch self {
-            case let .token(_, range):
-                return range
-            case let .named(_, match):
-                return match.range
-            case let .node(matches):
-                guard let first = matches.first?.range,
-                    let last = matches.last?.range else {
-                    return nil
-                }
-                return first.lowerBound ..< last.upperBound
-            }
-        }
-
-        /// Flatten match results into a single token
-        public func flatten() -> Match {
-            func _flatten(_ match: Match) -> String {
-                switch match {
-                case let .token(string, _):
-                    return string
-                case let .named(_, match):
-                    return _flatten(match)
-                case let .node(matches):
-                    return matches.map(_flatten).joined()
-                }
-            }
-            return .token(_flatten(self), range)
-        }
-
-        /// Lisp-like description of the AST
-        public var description: String {
-            func _description(_ match: Match, _ indent: String) -> String {
-                switch match {
-                case let .named(name, match):
-                    return "(\(name) \(_description(match, indent)))"
-                case let .token(string, _):
-                    return escapeString(string)
-                case let .node(matches):
-                    return """
-                    (
-                    \(indent)    \(matches.map { _description($0, indent + "    ") }.joined(separator: "\n\(indent)    "))
-                    \(indent))
-                    """
-                }
-            }
-            return _description(self, "")
-        }
-
-        /// Equatable implementation
-        public static func == (lhs: Match, rhs: Match) -> Bool {
-            switch (lhs, rhs) {
-            case let (.named(lhs), .named(rhs)):
-                return lhs == rhs
-            case let (.token(lhs), .token(rhs)):
-                return lhs.0 == rhs.0 && (lhs.1 == rhs.1 || rhs.1 == nil)
-            case let (.node(lhs), .node(rhs)):
-                return lhs == rhs
-            case (.named, _), (.token, _), (.node, _):
-                return false
-            }
-        }
-    }
-
-    /// A Parsing error
-    struct Error: Swift.Error, CustomStringConvertible {
-        public indirect enum Kind {
-            case expected(Consumer)
-            case unexpectedToken
-            case custom(Swift.Error)
-        }
-
-        public var kind: Kind
-        public var partialMatches: [Match]
-        public var remaining: Substring.UnicodeScalarView?
-        public var offset: Int?
-
-        fileprivate init(_ kind: Kind,
-                    partialMatches: [Match] = [],
-                    remaining: Substring.UnicodeScalarView?) {
-            self.kind = kind
-            self.partialMatches = partialMatches
-            self.remaining = remaining
-        }
-
-        public init(_ error: Swift.Error, offset: Int?) {
-            if let error = error as? Error {
-                self = error
-                self.offset = self.offset ?? offset
-                return
-            }
-            self.kind = .custom(error)
-            self.partialMatches = []
-            self.offset = self.offset ?? offset
-        }
-
-        public var description: String {
-            let offset = self.offset.map { " at \($0)" } ?? ""
-            switch kind {
-            case let .expected(consumer) where remaining?.isEmpty == true:
-                return "Expected \(consumer)\(offset)"
-            case .expected, .unexpectedToken:
-                var token = ""
-                if var remaining = self.remaining {
-                    while let char = remaining.popFirst(),
-                        !" \t\n\r".unicodeScalars.contains(char) {
-                        token.append(Character(char))
-                    }
-                }
-                return token.isEmpty ? "Unexpected token\(offset)" :
-                    "Unexpected token \(escapeString(token))\(offset)"
-            case let .custom(error):
-                return "\(error)\(offset)"
-            }
-        }
-    }
-
-    // Internal match result
-    private enum Result {
+private extension Consumer {
+    enum Result {
         case success(Match)
         case failure(Error)
 
@@ -250,16 +236,15 @@ public extension Consumer {
         }
     }
 
-    /// Parse input and return matched result
-    public func match(_ input: String) throws -> Match {
+    func _match(_ input: String) throws -> Match {
         var input = Substring(input).unicodeScalars
         var consumersByName = [Label: Consumer]()
         var offset = 0
         func _match(_ consumer: Consumer) -> Result {
             switch consumer {
-            case let .label(name, consumer):
+            case let .label(name, _consumer):
                 consumersByName[name] = consumer
-                return _match(consumer).map { .named(name, $0) }
+                return _match(_consumer).map { .named(name, $0) }
             case let .reference(name):
                 guard let consumer = consumersByName[name] else {
                     preconditionFailure("Undefined reference for consumer '\(name)'")
@@ -274,7 +259,7 @@ public extension Consumer {
                 let newOffset = offset + scalars.count
                 defer { offset = newOffset }
                 return .success(.token(string, offset ..< newOffset))
-            case let .codePointIn(range):
+            case let .codePoint(range):
                 if let char = input.first, range.contains(char.value) {
                     input.removeFirst()
                     let newOffset = offset + 1
@@ -282,7 +267,7 @@ public extension Consumer {
                     return .success(.token(String(char), offset ..< newOffset))
                 }
                 return .failure(Error(.expected(consumer), remaining: input))
-            case let .anyOf(consumers):
+            case let .any(consumers):
                 var best: Error?
                 for consumer in consumers {
                     let result = _match(consumer)
@@ -375,9 +360,75 @@ public extension Consumer {
     }
 }
 
-public extension Consumer.Match {
-    /// Transform generic AST to application-specific form
-    func transform(_ fn: (_ name: Label, _ value: Any) throws -> Any?) rethrows -> Any? {
+// MARK: Match implementation
+
+extension Consumer.Match: CustomStringConvertible {
+    /// Lisp-like description of the AST
+    public var description: String {
+        func _description(_ match: Consumer.Match, _ indent: String) -> String {
+            switch match {
+            case let .named(name, match):
+                return "(\(name) \(_description(match, indent)))"
+            case let .token(string, _):
+                return escapeString(string)
+            case let .node(matches):
+                return """
+                (
+                \(indent)    \(matches.map { _description($0, indent + "    ") }.joined(separator: "\n\(indent)    "))
+                \(indent))
+                """
+            }
+        }
+        return _description(self, "")
+    }
+
+    /// Equatable implementation
+    public static func == (lhs: Consumer.Match, rhs: Consumer.Match) -> Bool {
+        switch (lhs, rhs) {
+        case let (.named(lhs), .named(rhs)):
+            return lhs == rhs
+        case let (.token(lhs), .token(rhs)):
+            return lhs.0 == rhs.0 && lhs.1 == rhs.1
+        case let (.node(lhs), .node(rhs)):
+            return lhs == rhs
+        case (.named, _), (.token, _), (.node, _):
+            return false
+        }
+    }
+}
+
+private extension Consumer.Match {
+    var _range: Range<Int>? {
+        switch self {
+        case let .token(_, range):
+            return range
+        case let .named(_, match):
+            return match.range
+        case let .node(matches):
+            guard let first = matches.first?.range,
+                let last = matches.last?.range else {
+                return nil
+            }
+            return first.lowerBound ..< last.upperBound
+        }
+    }
+
+    func _flatten() -> Consumer.Match {
+        func _flatten(_ match: Consumer.Match) -> String {
+            switch match {
+            case let .token(string, _):
+                return string
+            case let .named(_, match):
+                return _flatten(match)
+            case let .node(matches):
+                return matches.map(_flatten).joined()
+            }
+        }
+        return .token(_flatten(self), range)
+    }
+
+    func _transform(_ fn: Consumer.Transform) rethrows -> Any? {
+        // TODO: warn if no matches are labelled, as transform won't work
         do {
             switch self {
             case let .token(string, _):
@@ -390,8 +441,58 @@ public extension Consumer.Match {
         } catch let error as Consumer.Error {
             throw error
         } catch {
-            throw Consumer.Error(error, offset: self.range?.lowerBound)
+            throw Consumer.Error(error, offset: range?.lowerBound)
         }
+    }
+}
+
+// MARK: Error implementation
+
+extension Consumer.Error: CustomStringConvertible {
+    /// Human-readable error description
+    public var description: String {
+        let offset = self.offset.map { " at \($0)" } ?? ""
+        switch kind {
+        case let .expected(consumer) where remaining?.isEmpty == true:
+            return "Expected \(consumer)\(offset)"
+        case .expected, .unexpectedToken:
+            var token = ""
+            if var remaining = self.remaining {
+                while let char = remaining.popFirst(),
+                    !" \t\n\r".unicodeScalars.contains(char) {
+                    token.append(Character(char))
+                }
+            }
+            return token.isEmpty ? "Unexpected token\(offset)" :
+                "Unexpected token \(escapeString(token))\(offset)"
+        case let .custom(error):
+            return "\(error)\(offset)"
+        }
+    }
+}
+
+private extension Consumer.Error {
+    init(_ kind: Kind,
+         partialMatches: [Consumer.Match] = [],
+         remaining: Substring.UnicodeScalarView?) {
+        self.kind = kind
+        self.partialMatches = partialMatches
+        self.remaining = remaining
+        offset = remaining.map {
+            $0.distance(from: "".startIndex, to: $0.startIndex)
+        }
+    }
+
+    init(_ error: Swift.Error, offset: Int?) {
+        if let error = error as? Consumer.Error {
+            self = error
+            self.offset = self.offset ?? offset
+            return
+        }
+        kind = .custom(error)
+        partialMatches = []
+        self.offset = self.offset ?? offset
+        remaining = nil
     }
 }
 
