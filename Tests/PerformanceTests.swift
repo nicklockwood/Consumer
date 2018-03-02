@@ -29,9 +29,36 @@
 //  SOFTWARE.
 //
 
-import Consumer
+import Foundation
 import XCTest
 
 class PerformanceTests: XCTestCase {
-    // TODO: performance tests
+
+    func testJSONConsumer() {
+        measure {
+            _ = try! parseJSON(json)
+        }
+    }
+
+    func testJSONSerialization() {
+        let data = json.data(using: .utf8)!
+        measure {
+            _ = try! JSONSerialization.jsonObject(with: data, options: [])
+        }
+    }
 }
+
+// http://json.org/example.html
+private let json = """
+{"menu": {
+  "id": "file",
+  "value": "File",
+  "popup": {
+    "menuitem": [
+      {"value": "New", "onclick": "CreateNewDoc()"},
+      {"value": "Open", "onclick": "OpenDoc()"},
+      {"value": "Close", "onclick": "CloseDoc()"}
+    ]
+  }
+}}
+"""

@@ -33,6 +33,8 @@ The primary interface is the `Consumer` type, which is used to programmatically 
 
 Using that grammar, you can then parse String input into an AST (Abstract Syntax Tree), which can then be transformed into application-specific data
 
+**Note: Consumer is at a very early stage of development. Performance is not good, and breaking changes are likely. It is not recommended that you use it in production at this time.**
+
 ## Why?
 
 There are many situations where it is useful to be able to parse structured data. Most popular file formats have some kind of parser, typically either written by hand or by using code generation. 
@@ -108,7 +110,7 @@ let integer: Consumer<String> = .sequence([
 ])
 ```
 
-So instead of `oneOrMore` digits in the range 0 - 9, we're now looking for a single digit in the range 1 - 9, followed by `zeroOrMore` digits in the range 0 - 9. That means that a zero preceeding a nonzero digit will not be matched.
+So instead of `oneOrMore` digits in the range 0 - 9, we're now looking for a single digit in the range 1 - 9, followed by `zeroOrMore` digits in the range 0 - 9. That means that a zero preceding a nonzero digit will not be matched.
 
 ```swift
 do {
@@ -201,7 +203,7 @@ The `Label` type is used in conjunction with the `label` consumer type. This eff
 
 The first purpose is to allow [forward references](#forward-references), which are explained below.
 
-The second purpose is for use when tranforming, to identify the type of node to be transformed. Labels assigned to consumer rules are preserved in the `Match` node after parsing, making it possible to identify which rule was matched to create a particular type of value. Matched values that are not labelled cannot be individually transformed, they will instead be be passed as the value for the first labelled parent node.
+The second purpose is for use when transforming, to identify the type of node to be transformed. Labels assigned to consumer rules are preserved in the `Match` node after parsing, making it possible to identify which rule was matched to create a particular type of value. Matched values that are not labelled cannot be individually transformed, they will instead be be passed as the value for the first labelled parent node.
 
 So, to transform the integer result, we must first give it a label, by using the `label` consumer type:
 
@@ -246,13 +248,13 @@ default:
 }
 ```
 
-The `Int(_ string: String)` initializer returns an optional in case the string supplied cannot be converted to an `Int`. Since we've already pre-determined that the string only contains digits, you might think we could safely force unwrap this, but it is still possible for the initializer to fail - the matched integer might have too many digits to fit into 64 bits, for example.
+The `Int(_ string: String)` initializer returns an `Optional` in case the string supplied cannot be converted to an `Int`. Since we've already pre-determined that the string only contains digits, you might think we could safely force unwrap this, but it is still possible for the initializer to fail - the matched integer might have too many digits to fit into 64 bits, for example.
 
-We could also just return `Int(string)` directly, since the return type for the transform function is `Any?`, but this would be a mistake because that would silently omit the number from the output, and we actually want to treat it as an error instead. We've used an imaginary error type called `MyError` here, but you can use whatever type you like. Consumer will wrap the erro you throw in a `Consumer.Error` before returning it, which will annotate it with the source input offset and other useful metatdata preserved from the parsing process.
+We could also just return `Int(string)` directly, since the return type for the transform function is `Any?`, but this would be a mistake because that would silently omit the number from the output, and we actually want to treat it as an error instead. We've used an imaginary error type called `MyError` here, but you can use whatever type you like. Consumer will wrap the error you throw in a `Consumer.Error` before returning it, which will annotate it with the source input offset and other useful metadata preserved from the parsing process.
 
 ## Common Transforms
 
-Certain types of transform are very common. In addition to the Array -> String converstion we've just done, other examples include discarding a value (equivalent to returning `nil` from the transform function), or substituting a given string for a different one (e.g. replace "\n" with a newline character, or vice-versa).
+Certain types of transform are very common. In addition to the Array -> String conversion we've just done, other examples include discarding a value (equivalent to returning `nil` from the transform function), or substituting a given string for a different one (e.g. replace "\n" with a newline character, or vice-versa).
 
 For these common operations, rather than applying a label to the consumer and having to write a transform function, you can use one of the built-in consumer transforms: 
 
@@ -357,7 +359,7 @@ The `array` consumer contains a comma-delimited sequence of `json` values, and t
 
 You see the problem? The `array` consumer references the `json` consumer before it has been declared. This is known as a *forward reference*. You might think we can solve this by predeclaring the `json` variable before we assign its value, but this won't work - `Consumer` is a value type, so every reference to it is actually a copy - it needs to be defined up front.
 
-In order to implement this, we need to make use the `label` and `reference` features. First, we must give the `json` consumer a label so that it can be referenced before it is declared:
+In order to implement this, we need to make use of the `label` and `reference` features. First, we must give the `json` consumer a label so that it can be referenced before it is declared:
 
 ```swift
 let json: Consumer<String> = .label("json", .any([null, bool, number, string, object, array]))
@@ -372,6 +374,23 @@ let array: Consumer<String> = .sequence([
     .string("]"),
 ])
 ```
+
+**Note:** You must be careful when using references like this, not just to ensure that the named consumer actually exists, but that it is included in a non-reference form somewhere in your root consumer (the one which you actually try to match against the input). In this case, `json` *is* the root consumer, so we know it exists, but what if we had defined the reference the other way around:
+
+```swift
+let json: Consumer<String> = .any([null, bool, number, string, object, .reference("array")])
+
+let array: Consumer<String> = .label("array", .sequence([
+    .string("["),
+    .optional(.interleaved(json, ","))
+    .string("]"),
+]))
+```
+
+So now we've switched things up so that `json` is defined first, and has a forward reference to `array`. It seems like this should work, but it won't. The problem is that when we go to match `json` against an input string, there's no copy of the actual `array` consumer anywhere in the `json` consumer. It's referenced by name only.
+
+You can avoid this problem if you ensure that references only point from child nodes to their parents, and that parent consumers reference their children directly, rather than by name.
+
 
 ## Syntax Sugar
 

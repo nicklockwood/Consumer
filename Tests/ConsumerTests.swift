@@ -107,8 +107,18 @@ class ConsumerTests: XCTestCase {
     }
 
     func testFlattenSequence() {
-        let parser: Consumer<String> = .flatten(.sequence([.string("foo"), .string("bar")]))
+        let parser: Consumer<String> = .flatten([.string("foo"), .string("bar")])
         XCTAssertEqual(try parser.match("foobar"), .token("foobar", 0 ..< 6))
+    }
+
+    func testDiscardSequence() {
+        let parser: Consumer<String> = .discard([.string("foo"), .string("bar")])
+        XCTAssertEqual(try parser.match("foobar"), .node([]))
+    }
+
+    func testReplaceSequence() {
+        let parser: Consumer<String> = .replace([.string("foo"), .string("bar")], "baz")
+        XCTAssertEqual(try parser.match("foobar"), .token("baz", 0 ..< 6))
     }
 
     /// MARK: Sugar

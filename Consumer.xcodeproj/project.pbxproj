@@ -18,6 +18,8 @@
 		018874AC2049BD9800CE241F /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018874AB2049BD9800CE241F /* main.swift */; };
 		018874B02049BFDB00CE241F /* Consumer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 015B35B61D8AD16700ABBD4E /* Consumer.swift */; };
 		01A6CF3B204A13FB00845ABC /* repl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01A6CF3A204A13FB00845ABC /* repl.swift */; };
+		01A6CF3C204A158200845ABC /* json.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018874A32048A93400CE241F /* json.swift */; };
+		01A6CF3D204A15B200845ABC /* Consumer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 015B35B61D8AD16700ABBD4E /* Consumer.swift */; };
 		01CF6AFB1E1C71020017139E /* ConsumerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01CF6AF61E1C705F0017139E /* ConsumerTests.swift */; };
 		01DD38D91ED63B1E00F17F46 /* PerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01DD38951ED62F6500F17F46 /* PerformanceTests.swift */; };
 		01DD38DB1ED63B1E00F17F46 /* Consumer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 011F79551D8D67BD00C5299A /* Consumer.framework */; };
@@ -479,7 +481,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				01A6CF3D204A15B200845ABC /* Consumer.swift in Sources */,
 				01DD38D91ED63B1E00F17F46 /* PerformanceTests.swift in Sources */,
+				01A6CF3C204A158200845ABC /* json.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
