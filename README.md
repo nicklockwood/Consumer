@@ -18,7 +18,9 @@
     - [Typed Labels](#typed-labels)
     - [Forward References](#forward-references)
     - [Syntax Sugar](#syntax-sugar)
-- [JSON Example](#json-example)
+- [Example Projects](#example-projects)
+    - [JSON](#json)
+    - [REPL](#repl)
 
 
 # Introduction
@@ -416,7 +418,22 @@ let fooOrbar: Consumer<String> = "foo" | "bar"
 Be careful when using the `|` operator for very complex expressions however, as it can cause Swift's compile time to go up exponentially due to the complexity of type inference. It's best to only use `|` for a small number of cases. If it's more than 4 or 5 you should probably use `any()` instead.
 
 
-# JSON Example
+# Example Projects
 
-In the Examples folder in the Consumer project you can find a full grammar definition for a [JSON](https://json.org) parser, along with a transform function to convert it into valid Swift data.
+Consumer includes a number of example projects to demonstrate the framework:
 
+## JSON
+
+The JSON example project implements a [JSON](https://json.org) parser, along with a transform function to convert it into Swift data.
+
+## REPL
+
+The REPL (Read Evaluate Print Loop) example is a Mac command-line tool for evaluating expressions. The REPL can handle numbers, booleans and string values, but currently only supports basic math operations.
+
+Each line you type into the REPL is evaluated independently and the result is printed in the console. To share values between expressions, you can define variables using an identifier name followed by `=` and then an expression, e.g:
+
+```
+foo = (5 + 6) + 7
+```
+
+The named variable ("foo", in this case) is then available to use in subsequent expressions.
