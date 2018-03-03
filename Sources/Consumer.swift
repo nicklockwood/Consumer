@@ -299,16 +299,13 @@ private extension Consumer {
                             bestIndex = index
                             expected = consumer
                         }
-                        if case .optional = consumer {
-                            continue
-                        }
                         index = start
                         return nil
                     }
                 }
                 return .node(nil, matches)
             case let .optional(consumer):
-                return _match(consumer)
+                return _match(consumer) ?? .node(nil, [])
             case let .zeroOrMore(consumer):
                 var matches = [Match]()
                 while let match = _match(consumer) {
@@ -324,15 +321,7 @@ private extension Consumer {
                 }
                 return .node(nil, matches)
             case let .flatten(consumer):
-                if let match = _match(consumer) {
-                    return match.flatten()
-                } else {
-                    if case .optional = consumer {
-                        // TODO: is this the right behavior?
-                        return .token("", nil)
-                    }
-                    return nil
-                }
+                return _match(consumer)?.flatten()
             case let .discard(consumer):
                 return _match(consumer).map { _ in .node(nil, []) }
             case let .replace(consumer, replacement):
@@ -344,8 +333,6 @@ private extension Consumer {
                 throw Error(.unexpectedToken, remaining: input[index...])
             }
             return match
-        } else if input.isEmpty, case .optional = self {
-            return .node(nil, [])
         } else {
             throw Error(.expected(expected ?? self), remaining: input[bestIndex...])
         }
