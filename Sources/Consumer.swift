@@ -237,8 +237,9 @@ private extension Consumer {
     }
 
     func _match(_ input: String) throws -> Match {
-        var input = Substring(input).unicodeScalars
         var consumersByName = [Label: Consumer]()
+        let input = input.unicodeScalars
+        var index = input.startIndex
         var offset = 0
         func _match(_ consumer: Consumer) -> Result {
             switch consumer {
@@ -252,21 +253,25 @@ private extension Consumer {
                 return _match(consumer)
             case let .string(string):
                 let scalars = string.unicodeScalars
-                guard input.starts(with: scalars) else {
-                    return .failure(Error(.expected(consumer), remaining: input))
+                var newOffset = offset
+                var newIndex = index
+                for c in scalars {
+                    guard newIndex < input.endIndex, input[newIndex] == c else {
+                        return .failure(Error(.expected(consumer), remaining: input[index...]))
+                    }
+                    newOffset += 1
+                    newIndex = input.index(after: newIndex)
                 }
-                input.removeFirst(scalars.count)
-                let newOffset = offset + scalars.count
+                index = newIndex
                 defer { offset = newOffset }
                 return .success(.token(string, offset ..< newOffset))
             case let .codePoint(range):
-                if let char = input.first, range.contains(char.value) {
-                    input.removeFirst()
-                    let newOffset = offset + 1
-                    defer { offset = newOffset }
-                    return .success(.token(String(char), offset ..< newOffset))
+                if index < input.endIndex, range.contains(input[index].value) {
+                    offset += 1
+                    defer { index = input.index(after: index) }
+                    return .success(.token(String(input[index]), offset - 1 ..< offset))
                 }
-                return .failure(Error(.expected(consumer), remaining: input))
+                return .failure(Error(.expected(consumer), remaining: input[index...]))
             case let .any(consumers):
                 var best: Error?
                 for consumer in consumers {
@@ -280,14 +285,13 @@ private extension Consumer {
                         }
                     }
                 }
-                return .failure(best ?? Error(.expected(consumer), remaining: input))
+                return .failure(best ?? Error(.expected(consumer), remaining: input[index...]))
             case let .sequence(consumers):
-                let start = input
+                let start = index
                 var best: Error?
                 var matches = [Match]()
                 for consumer in consumers {
-                    let result = _match(consumer)
-                    switch result {
+                    switch _match(consumer) {
                     case let .success(match):
                         switch match {
                         case .named, .token:
@@ -302,7 +306,7 @@ private extension Consumer {
                         if case .optional = consumer {
                             continue
                         }
-                        defer { input = start }
+                        defer { index = start }
                         return .failure(Error(
                             best!.kind,
                             partialMatches: matches + best!.partialMatches,
@@ -343,11 +347,11 @@ private extension Consumer {
         }
         switch _match(self) {
         case let .success(match):
-            if !input.isEmpty {
+            if index < input.endIndex {
                 throw Error(
                     .unexpectedToken,
                     partialMatches: [match],
-                    remaining: input
+                    remaining: input[index...]
                 )
             }
             return match
