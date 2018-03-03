@@ -33,7 +33,7 @@ The primary interface is the `Consumer` type, which is used to programmatically 
 
 Using that grammar, you can then parse String input into an AST (Abstract Syntax Tree), which can then be transformed into application-specific data
 
-**Note: Consumer is at a very early stage of development. Performance is not good, and breaking changes are likely. It is not recommended that you use it in production at this time.**
+**Note: Consumer is at a very early stage of development. Performance is not great, and breaking changes are likely. It is not recommended that you use it in production at this time.**
 
 ## Why?
 

@@ -180,6 +180,20 @@ class ConsumerTests: XCTestCase {
         }
     }
 
+    func testEmptyInput() {
+        let parser: Consumer<String> = "foo"
+        let input = ""
+        XCTAssertThrowsError(try parser.match(input)) { error in
+            let error = error as! Consumer<String>.Error
+            switch error.kind {
+            case .expected("foo"):
+                XCTAssertEqual(error.offset, 0)
+            default:
+                XCTFail()
+            }
+        }
+    }
+
     func testUnexpectedToken() {
         let parser: Consumer<String> = [.oneOrMore("foo"), "baz"]
         let input = "foofoobar"

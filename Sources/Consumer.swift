@@ -2,7 +2,7 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.1.0
+//  Version 0.1.1
 //
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
@@ -332,14 +332,10 @@ private extension Consumer {
                 throw Error(.unexpectedToken, remaining: input[index...])
             }
             return match
+        } else if input.isEmpty, case .optional = self {
+            return .node([])
         } else {
-            if input.isEmpty, case .optional = self {
-                return .node([])
-            }
-            if let expected = expected {
-                throw Error(.expected(expected), remaining: input[bestIndex...])
-            }
-            throw Error(.unexpectedToken, remaining: input[bestIndex...])
+            throw Error(.expected(expected ?? self), remaining: input[bestIndex...])
         }
     }
 }
