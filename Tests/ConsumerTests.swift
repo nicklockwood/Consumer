@@ -221,4 +221,21 @@ class ConsumerTests: XCTestCase {
             }
         }
     }
+
+    /// MARK: Consumer Description
+
+    func testStringDescription() {
+        XCTAssertEqual(Consumer<String>.string("foo").description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.string("\0").description, "'\\0'")
+        XCTAssertEqual(Consumer<String>.string("\t").description, "'\\t'")
+        XCTAssertEqual(Consumer<String>.string("\r").description, "'\\r'")
+        XCTAssertEqual(Consumer<String>.string("\n").description, "'\\n'")
+        XCTAssertEqual(Consumer<String>.string("\r\n").description, "\"\\r\\n\"")
+        XCTAssertEqual(Consumer<String>.string("\"").description, "'\\\"'")
+        XCTAssertEqual(Consumer<String>.string("\'").description, "'\\''")
+        XCTAssertEqual(Consumer<String>.string("ö").description, "U+00F6")
+        XCTAssertEqual(Consumer<String>.string("Zöe").description, "\"Z\\u{F6}e\"")
+        XCTAssertEqual(Consumer<String>.string("👍").description, "U+1F44D")
+        XCTAssertEqual(Consumer<String>.string("Thanks 👍").description, "\"Thanks \\u{1F44D}\"")
+    }
 }

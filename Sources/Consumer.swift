@@ -471,7 +471,7 @@ private extension Consumer.Error {
 }
 
 // Human-readable character
-private func escapeCodePoint(_ codePoint: UInt32, inQuotes: Bool = true) -> String {
+private func escapeCodePoint(_ codePoint: UInt32, inString: Bool = false) -> String {
     let result: String
     switch codePoint {
     case 0:
@@ -482,30 +482,35 @@ private func escapeCodePoint(_ codePoint: UInt32, inQuotes: Bool = true) -> Stri
         result = "\\n"
     case 13:
         result = "\\r"
+    case 34:
+        result = "\\\""
+    case 39:
+        result = "\\\'"
     case 0x20 ..< 0x7F:
         result = String(UnicodeScalar(codePoint)!)
     default:
-        var hex = String(codePoint, radix: 16, uppercase: true)
-        while hex.count < 4 { hex = "0\(hex)" }
-        return inQuotes ? "U+\(hex)" : hex
+        let hex = String(codePoint, radix: 16, uppercase: true)
+        if inString {
+            return "\\u{\(hex)}"
+        }
+        let count = 4 - hex.count
+        if count > 0 {
+            return "U+\(String.init(repeating: "0", count: count))\(hex)"
+        }
+        return "U+\(hex)"
     }
-    return inQuotes ? "'\(result)'" : result
+    return inString ? result : "'\(result)'"
 }
 
 // Human-readable string
-private func escapeString<T: StringProtocol>(_ string: T, inQuotes: Bool = true) -> String {
+private func escapeString<T: StringProtocol>(_ string: T) -> String {
     var scalars = Substring(string).unicodeScalars
-    if inQuotes, scalars.count == 1 {
+    if scalars.count == 1 {
         return escapeCodePoint(scalars.first!.value)
     }
-    var result = ""
+    var result = "\""
     while let char = scalars.popFirst() {
-        let escaped = escapeCodePoint(char.value, inQuotes: false)
-        if escaped.count == 4 {
-            result += "\\u{\(String(format: "%X", char.value))}"
-        } else {
-            result += escaped
-        }
+        result.append(escapeCodePoint(char.value, inString: true))
     }
-    return inQuotes ? "\"\(result)\"" : result
+    return result.appending("\"")
 }
