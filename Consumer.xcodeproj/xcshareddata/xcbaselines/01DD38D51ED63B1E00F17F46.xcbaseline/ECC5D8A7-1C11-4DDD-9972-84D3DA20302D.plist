@@ -574,9 +574,9 @@
 				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
 				<dict>
 					<key>baselineAverage</key>
-					<real>0.064103</real>
+					<real>0.046916</real>
 					<key>baselineIntegrationDisplayName</key>
-					<string>3 Mar 2018 at 00:18:18</string>
+					<string>3 Mar 2018 at 09:12:33</string>
 				</dict>
 			</dict>
 			<key>testJSONSerialization()</key>
@@ -584,9 +584,9 @@
 				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
 				<dict>
 					<key>baselineAverage</key>
-					<real>9.0303e-05</real>
+					<real>0.00020765</real>
 					<key>baselineIntegrationDisplayName</key>
-					<string>3 Mar 2018 at 00:18:18</string>
+					<string>3 Mar 2018 at 09:12:33</string>
 				</dict>
 			</dict>
 			<key>testOptimizinReallyLongExpressionWithNewInitializer()</key>

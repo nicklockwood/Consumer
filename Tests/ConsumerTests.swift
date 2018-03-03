@@ -163,4 +163,48 @@ class ConsumerTests: XCTestCase {
         XCTAssertThrowsError(try parser.match("barfoo"))
         XCTAssertThrowsError(try parser.match(""))
     }
+
+    /// MARK: Errors
+
+    func testUnmatchedInput() {
+        let parser: Consumer<String> = "foo"
+        let input = "foo "
+        XCTAssertThrowsError(try parser.match(input)) { error in
+            let error = error as! Consumer<String>.Error
+            switch error.kind {
+            case .unexpectedToken:
+                XCTAssertEqual(error.offset, 3)
+            default:
+                XCTFail()
+            }
+        }
+    }
+
+    func testUnexpectedToken() {
+        let parser: Consumer<String> = [.oneOrMore("foo"), "baz"]
+        let input = "foofoobar"
+        XCTAssertThrowsError(try parser.match(input)) { error in
+            let error = error as! Consumer<String>.Error
+            switch error.kind {
+            case .expected("baz"):
+                XCTAssertEqual(error.offset, 6)
+            default:
+                XCTFail()
+            }
+        }
+    }
+
+    func testBestMatch() {
+        let parser: Consumer<String> = ["foo", "bar"] | [.oneOrMore("foo"), "baz"]
+        let input = "foofoobar"
+        XCTAssertThrowsError(try parser.match(input)) { error in
+            let error = error as! Consumer<String>.Error
+            switch error.kind {
+            case .expected("baz"):
+                XCTAssertEqual(error.offset, 6)
+            default:
+                XCTFail()
+            }
+        }
+    }
 }

@@ -92,7 +92,6 @@ public extension Consumer {
         }
 
         public var kind: Kind
-        public var partialMatches: [Match]
         public var remaining: Substring.UnicodeScalarView?
         public var offset: Int?
     }
@@ -224,24 +223,16 @@ extension Consumer: CustomStringConvertible {
 }
 
 private extension Consumer {
-    enum Result {
-        case success(Match)
-        case failure(Error)
-
-        func map(_ fn: (Match) -> Match) -> Result {
-            if case let .success(match) = self {
-                return .success(fn(match))
-            }
-            return self
-        }
-    }
-
     func _match(_ input: String) throws -> Match {
         var consumersByName = [Label: Consumer]()
         let input = input.unicodeScalars
         var index = input.startIndex
         var offset = 0
-        func _match(_ consumer: Consumer) -> Result {
+
+        var bestIndex = input.startIndex
+        var expected: Consumer?
+
+        func _match(_ consumer: Consumer) -> Match? {
             switch consumer {
             case let .label(name, _consumer):
                 consumersByName[name] = consumer
@@ -257,69 +248,61 @@ private extension Consumer {
                 var newIndex = index
                 for c in scalars {
                     guard newIndex < input.endIndex, input[newIndex] == c else {
-                        return .failure(Error(.expected(consumer), remaining: input[index...]))
+                        if newIndex > bestIndex {
+                            bestIndex = index
+                            expected = consumer
+                        }
+                        return nil
                     }
                     newOffset += 1
                     newIndex = input.index(after: newIndex)
                 }
                 index = newIndex
                 defer { offset = newOffset }
-                return .success(.token(string, offset ..< newOffset))
+                return .token(string, offset ..< newOffset)
             case let .codePoint(range):
                 if index < input.endIndex, range.contains(input[index].value) {
                     offset += 1
                     defer { index = input.index(after: index) }
-                    return .success(.token(String(input[index]), offset - 1 ..< offset))
+                    return .token(String(input[index]), offset - 1 ..< offset)
                 }
-                return .failure(Error(.expected(consumer), remaining: input[index...]))
+                return nil
             case let .any(consumers):
-                var best: Error?
                 for consumer in consumers {
-                    let result = _match(consumer)
-                    switch result {
-                    case .success:
-                        return result
-                    case let .failure(error):
-                        if (error.offset ?? 0) > (best?.offset ?? offset) {
-                            best = error
-                        }
+                    if let match = _match(consumer) {
+                        return match
                     }
                 }
-                return .failure(best ?? Error(.expected(consumer), remaining: input[index...]))
+                return nil
             case let .sequence(consumers):
                 let start = index
-                var best: Error?
                 var matches = [Match]()
                 for consumer in consumers {
-                    switch _match(consumer) {
-                    case let .success(match):
+                    if let match = _match(consumer) {
                         switch match {
                         case .named, .token:
                             matches.append(match)
                         case let .node(_matches):
                             matches += _matches
                         }
-                    case let .failure(error):
-                        if best == nil || (error.offset ?? 0) > (best?.offset ?? 0) {
-                            best = error
+                    } else {
+                        if index > bestIndex {
+                            bestIndex = index
+                            expected = consumer
                         }
                         if case .optional = consumer {
                             continue
                         }
-                        defer { index = start }
-                        return .failure(Error(
-                            best!.kind,
-                            partialMatches: matches + best!.partialMatches,
-                            remaining: best!.remaining
-                        ))
+                        index = start
+                        return nil
                     }
                 }
-                return .success(.node(matches))
+                return .node(matches)
             case let .optional(consumer):
                 return _match(consumer)
             case let .zeroOrMore(consumer):
                 var matches = [Match]()
-                while case let .success(match) = _match(consumer) {
+                while let match = _match(consumer) {
                     switch match {
                     case .named, .token:
                         matches.append(match)
@@ -327,17 +310,16 @@ private extension Consumer {
                         matches += _matches
                     }
                 }
-                return .success(.node(matches))
+                return .node(matches)
             case let .flatten(consumer):
-                switch _match(consumer) {
-                case let .success(match):
-                    return .success(match.flatten())
-                case let .failure(error):
+                if let match = _match(consumer) {
+                    return match.flatten()
+                } else {
                     if case .optional = consumer {
                         // TODO: is this the right behavior?
-                        return .success(.token("", nil))
+                        return .token("", nil)
                     }
-                    return .failure(error)
+                    return nil
                 }
             case let .discard(consumer):
                 return _match(consumer).map { _ in .node([]) }
@@ -345,21 +327,19 @@ private extension Consumer {
                 return _match(consumer).map { .token(replacement, $0.range) }
             }
         }
-        switch _match(self) {
-        case let .success(match):
+        if let match = _match(self) {
             if index < input.endIndex {
-                throw Error(
-                    .unexpectedToken,
-                    partialMatches: [match],
-                    remaining: input[index...]
-                )
+                throw Error(.unexpectedToken, remaining: input[index...])
             }
             return match
-        case let .failure(error):
+        } else {
             if input.isEmpty, case .optional = self {
                 return .node([])
             }
-            throw error
+            if let expected = expected {
+                throw Error(.expected(expected), remaining: input[bestIndex...])
+            }
+            throw Error(.unexpectedToken, remaining: input[bestIndex...])
         }
     }
 }
@@ -476,11 +456,8 @@ extension Consumer.Error: CustomStringConvertible {
 }
 
 private extension Consumer.Error {
-    init(_ kind: Kind,
-         partialMatches: [Consumer.Match] = [],
-         remaining: Substring.UnicodeScalarView?) {
+    init(_ kind: Kind, remaining: Substring.UnicodeScalarView?) {
         self.kind = kind
-        self.partialMatches = partialMatches
         self.remaining = remaining
         offset = remaining.map {
             $0.distance(from: "".startIndex, to: $0.startIndex)
@@ -494,7 +471,6 @@ private extension Consumer.Error {
             return
         }
         kind = .custom(error)
-        partialMatches = []
         self.offset = self.offset ?? offset
         remaining = nil
     }
