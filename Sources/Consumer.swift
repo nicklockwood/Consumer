@@ -64,9 +64,8 @@ public extension Consumer {
 
     /// Abstract syntax tree returned by consumer
     indirect enum Match: Equatable {
-        case named(Label, Match)
         case token(String, Range<Int>?)
-        case node([Match])
+        case node(Label?, [Match])
 
         /// The range of the match in the original source (if known)
         public var range: Range<Int>? { return _range }
@@ -81,7 +80,7 @@ public extension Consumer {
     }
 
     /// Closure for transforming a Match to an application-specific data type
-    typealias Transform = (_ name: Label, _ value: Any) throws -> Any?
+    typealias Transform = (_ name: Label, _ values: [Any]) throws -> Any?
 
     /// A Parsing error
     struct Error: Swift.Error {
@@ -236,7 +235,14 @@ private extension Consumer {
             switch consumer {
             case let .label(name, _consumer):
                 consumersByName[name] = consumer
-                return _match(_consumer).map { .named(name, $0) }
+                return _match(_consumer).map { match in
+                    switch match {
+                    case let .node(_name, matches):
+                        return .node(name, _name == nil ? matches : [match])
+                    default:
+                        return .node(name, [match])
+                    }
+                }
             case let .reference(name):
                 guard let consumer = consumersByName[name] else {
                     preconditionFailure("Undefined reference for consumer '\(name)'")
@@ -280,10 +286,13 @@ private extension Consumer {
                 for consumer in consumers {
                     if let match = _match(consumer) {
                         switch match {
-                        case .named, .token:
-                            matches.append(match)
-                        case let .node(_matches):
+                        case let .node(name, _matches):
+                            if name != nil {
+                                fallthrough
+                            }
                             matches += _matches
+                        case .token:
+                            matches.append(match)
                         }
                     } else {
                         if index > bestIndex {
@@ -297,20 +306,23 @@ private extension Consumer {
                         return nil
                     }
                 }
-                return .node(matches)
+                return .node(nil, matches)
             case let .optional(consumer):
                 return _match(consumer)
             case let .zeroOrMore(consumer):
                 var matches = [Match]()
                 while let match = _match(consumer) {
                     switch match {
-                    case .named, .token:
-                        matches.append(match)
-                    case let .node(_matches):
+                    case let .node(name, _matches):
+                        if name != nil {
+                            fallthrough
+                        }
                         matches += _matches
+                    case .token:
+                        matches.append(match)
                     }
                 }
-                return .node(matches)
+                return .node(nil, matches)
             case let .flatten(consumer):
                 if let match = _match(consumer) {
                     return match.flatten()
@@ -322,7 +334,7 @@ private extension Consumer {
                     return nil
                 }
             case let .discard(consumer):
-                return _match(consumer).map { _ in .node([]) }
+                return _match(consumer).map { _ in .node(nil, []) }
             case let .replace(consumer, replacement):
                 return _match(consumer).map { .token(replacement, $0.range) }
             }
@@ -333,7 +345,7 @@ private extension Consumer {
             }
             return match
         } else if input.isEmpty, case .optional = self {
-            return .node([])
+            return .node(nil, [])
         } else {
             throw Error(.expected(expected ?? self), remaining: input[bestIndex...])
         }
@@ -347,16 +359,22 @@ extension Consumer.Match: CustomStringConvertible {
     public var description: String {
         func _description(_ match: Consumer.Match, _ indent: String) -> String {
             switch match {
-            case let .named(name, match):
-                return "(\(name) \(_description(match, indent)))"
             case let .token(string, _):
                 return escapeString(string)
-            case let .node(matches):
-                return """
-                (
-                \(indent)    \(matches.map { _description($0, indent + "    ") }.joined(separator: "\n\(indent)    "))
-                \(indent))
-                """
+            case let .node(name, matches):
+                switch matches.count {
+                case 0:
+                    return name.map { "(\($0))" } ?? "()"
+                case 1:
+                    let description = _description(matches[0], indent)
+                    return name.map { "(\($0) \(description))" } ?? description
+                default:
+                    return """
+                    (\(name.map { "\($0)" } ?? "")
+                    \(indent)    \(matches.map { _description($0, indent + "    ") }.joined(separator: "\n\(indent)    "))
+                    \(indent))
+                    """
+                }
             }
         }
         return _description(self, "")
@@ -365,13 +383,11 @@ extension Consumer.Match: CustomStringConvertible {
     /// Equatable implementation
     public static func == (lhs: Consumer.Match, rhs: Consumer.Match) -> Bool {
         switch (lhs, rhs) {
-        case let (.named(lhs), .named(rhs)):
-            return lhs == rhs
         case let (.token(lhs), .token(rhs)):
             return lhs.0 == rhs.0 && lhs.1 == rhs.1
         case let (.node(lhs), .node(rhs)):
-            return lhs == rhs
-        case (.named, _), (.token, _), (.node, _):
+            return lhs.0 == rhs.0 && lhs.1 == rhs.1
+        case (.token, _), (.node, _):
             return false
         }
     }
@@ -382,9 +398,7 @@ private extension Consumer.Match {
         switch self {
         case let .token(_, range):
             return range
-        case let .named(_, match):
-            return match.range
-        case let .node(matches):
+        case let .node(_, matches):
             guard let first = matches.first?.range,
                 let last = matches.last?.range else {
                 return nil
@@ -398,9 +412,7 @@ private extension Consumer.Match {
             switch match {
             case let .token(string, _):
                 return string
-            case let .named(_, match):
-                return _flatten(match)
-            case let .node(matches):
+            case let .node(_, matches):
                 return matches.map(_flatten).joined()
             }
         }
@@ -413,10 +425,9 @@ private extension Consumer.Match {
             switch self {
             case let .token(string, _):
                 return String(string)
-            case let .node(matches):
-                return try Array(matches.flatMap { try $0.transform(fn) })
-            case let .named(name, match):
-                return try match.transform(fn).flatMap { try fn(name, $0) }
+            case let .node(name, matches):
+                let values = try Array(matches.flatMap { try $0.transform(fn) })
+                return try name.map { try fn($0, values) } ?? values
             }
         } catch let error as Consumer.Error {
             throw error

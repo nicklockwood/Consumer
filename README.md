@@ -183,7 +183,7 @@ That's ... odd. You were probably hoping for a String containing "1234", or at l
 If we dig in a bit deeper and look at the structure of the `Match` value returned, we'll find it's something like this (omitting namespaces and other metadata for clarity):
 
 ```swift
-Match.node([
+Match.node(nil, [
     Match.token("1", 0 ..< 1),
     Match.token("2", 1 ..< 2),
     Match.token("3", 2 ..< 3),
@@ -193,17 +193,17 @@ Match.node([
 
 Because each digit in the number was matched individually, the result has been returned as an array of tokens, rather than a single token representing the entire number. This level of detail is potentially useful for some applications, but we don't need it right now - we just want to get the value. To do that, we need to *transform* the output.
 
-The `Match` type has a method called `transform()` for doing exactly that. The `transform()` method takes a closure argument of type `Transform`, which has the signature `(_ name: Label, _ value: Any) throws -> Any?`. The closure is applied recursively to all matched values in order to convert them to whatever form your application needs.
+The `Match` type has a method called `transform()` for doing exactly that. The `transform()` method takes a closure argument of type `Transform`, which has the signature `(_ name: Label, _ values: [Any]) throws -> Any?`. The closure is applied recursively to all matched values in order to convert them to whatever form your application needs.
 
 Unlike parsing, which is done from the top down, transforming is done from the bottom up. That means that the child nodes of each `Match` will be transformed before their parents, so that all the values passed to the transform closure should have already been converted to the expected types.
 
-So the transform function takes a value and returns a value - pretty straightforward - but you're probably wondering about the `Label` argument. If you look at the definition of the `Consumer` type, you'll notice that it also takes a generic argument of type `Label`. In the examples so far we've been passing `String` as the label type, but we've not actually used it yet.
+So the transform function takes an array of values and collapses them into a single value (or nil) - pretty straightforward - but you're probably wondering about the `Label` argument. If you look at the definition of the `Consumer` type, you'll notice that it also takes a generic argument of type `Label`. In the examples so far we've been passing `String` as the label type, but we've not actually used it yet.
 
-The `Label` type is used in conjunction with the `label` consumer type. This effectively allows you to assign a name to a given consumer rule, which can be used to refer to it later. Since you can store consumers in variables and refer to them that way, it's not immediately obvious why this is useful, but it has two purposes:
+The `Label` type is used in conjunction with the `label` consumer. This allows you to assign a name to a given consumer rule, which can be used to refer to it later. Since you can store consumers in variables and refer to them that way, it's not immediately obvious why this is useful, but it has two purposes:
 
 The first purpose is to allow [forward references](#forward-references), which are explained below.
 
-The second purpose is for use when transforming, to identify the type of node to be transformed. Labels assigned to consumer rules are preserved in the `Match` node after parsing, making it possible to identify which rule was matched to create a particular type of value. Matched values that are not labelled cannot be individually transformed, they will instead be be passed as the value for the first labelled parent node.
+The second purpose is for use when transforming, to identify the type of node to be transformed. Labels assigned to consumer rules are preserved in the `Match` node after parsing, making it possible to identify which rule was matched to create a particular type of value. Matched values that are not labelled cannot be individually transformed, they will instead be be passed as the values for the first labelled parent node.
 
 So, to transform the integer result, we must first give it a label, by using the `label` consumer type:
 
@@ -220,10 +220,10 @@ let integer: Consumer<String> = .label("integer", .any([
 We can then transform the match using the following code:
 
 ```swift
-let result = try integer.match("1234").transform { label, value in
+let result = try integer.match("1234").transform { label, values in
     switch label {
     case "integer":
-        return (value as! [String]).joined()
+        return (values as! [String]).joined()
     default:
         preconditionFailure("unhandled rule: \(name)")
     }
@@ -231,14 +231,14 @@ let result = try integer.match("1234").transform { label, value in
 print(result ?? "")
 ```
 
-We know that the `integer` consumer will always return an array of string tokens, so we can safely use `as!` in this case to cast the value to `[String]`. This is not especially elegant, but its the nature of dealing with dynamic data in Swift. Safety purists may prefer to use `as?` and throw an `Error` or return `nil` if the value is not a `[String]`, but that situation could only arise in the event of a programming error - no input data matched by the `integer` consumer we've defined above will ever return anything else.
+We know that the `integer` consumer will always return an array of string tokens, so we can safely use `as!` in this case to cast `values` to `[String]`. This is not especially elegant, but its the nature of dealing with dynamic data in Swift. Safety purists may prefer to use `as?` and throw an `Error` or return `nil` if the value is not a `[String]`, but that situation could only arise in the event of a programming error - no input data matched by the `integer` consumer we've defined above will ever return anything else.
 
-With the addition of this function, the array of character tokens is transformed into a single string value. The printed result is now simply "1234". That's much better, but it's still a string, and we may well want it to be an actual `Int` if we're going to use the value. Since the `transform` function returns `Any?`, we can return any type we want, so let's modify it to return an `Int` instead:
+With the addition of this function, the array of character tokens is transformed into a single string value. The printed result is now simply "1234". That's much better, but it's still a `String`, and we may well want it to be an actual `Int` if we're going to use the value. Since the `transform` function returns `Any?`, we can return any type we want, so let's modify it to return an `Int` instead:
 
 ```swift
 switch label {
 case "integer":
-    let string = (value as! [String]).joined()
+    let string = (values as! [String]).joined()
     guard let int = Int(string) else {
         throw MyError(message: "Invalid integer literal '\(string)'")
     }
@@ -248,9 +248,11 @@ default:
 }
 ```
 
-The `Int(_ string: String)` initializer returns an `Optional` in case the string supplied cannot be converted to an `Int`. Since we've already pre-determined that the string only contains digits, you might think we could safely force unwrap this, but it is still possible for the initializer to fail - the matched integer might have too many digits to fit into 64 bits, for example.
+The `Int(_ string: String)` initializer returns an `Optional` in case the argument cannot be converted to an `Int`. Since we've already pre-determined that the string only contains digits, you might think we could safely force unwrap this, but it is still possible for the initializer to fail - the matched integer might have too many digits to fit into 64 bits, for example.
 
-We could also just return `Int(string)` directly, since the return type for the transform function is `Any?`, but this would be a mistake because that would silently omit the number from the output, and we actually want to treat it as an error instead. We've used an imaginary error type called `MyError` here, but you can use whatever type you like. Consumer will wrap the error you throw in a `Consumer.Error` before returning it, which will annotate it with the source input offset and other useful metadata preserved from the parsing process.
+We could just return the result of `Int(string)` directly, since the return type for the transform function is `Any?`, but this would be a mistake because that would silently omit the number from the output if the conversion failed, and we actually want to treat it as an error instead.
+
+We've used an imaginary error type called `MyError` here, but you can use whatever type you like. Consumer will wrap the error you throw in a `Consumer.Error` before returning it, which will annotate it with the source input offset and other useful metadata preserved from the parsing process.
 
 ## Common Transforms
 
@@ -275,10 +277,10 @@ let integer: Consumer<String> = .label("integer", .flatten(.any([
     ]),
 ])))
 
-let result = try integer.match("1234").transform { label, value in
+let result = try integer.match("1234").transform { label, values in
     switch label {
     case "integer":
-        let string = value as! String // matched value is now a string
+        let string = values[0] as! String // matched value is now always a string
         guard let int = Int(string) else {
             throw MyError(message: "Invalid integer literal '\(string)'")
         }
@@ -301,7 +303,7 @@ enum MyLabel: String {
 }
 ```
 
-If we now change our code to use this `MyLabel` enum instead of `String`, we avoid error prone copying and pasting of string literals and we eliminate the need for the `default:` clause in the transform function, since Swift can now determine statically that `integer` is the only possible value. The other nice benefit is that if we add other label types in future, the compiler will warn us if we forget to implement transforms for them.
+If we now change our code to use this `MyLabel` enum instead of `String`, we avoid error-prone copying and pasting of string literals and we eliminate the need for the `default:` clause in the transform function, since Swift can now determine statically that `integer` is the only possible value. The other nice benefit is that if we add other label types in future, the compiler will warn us if we forget to implement transforms for them.
 
 The complete, updated code for the integer consumer is shown below:
 
@@ -322,10 +324,10 @@ enum MyError: Error {
     let message: String
 }
 
-let result = try integer.match("1234").transform { label, value in
+let result = try integer.match("1234").transform { label, values in
     switch label {
     case .integer:
-        let string = value as! String
+        let string = values[0] as! String
         guard let int = Int(string) else {
             throw MyError(message: "Invalid integer literal '\(string)'")
         }
@@ -456,3 +458,5 @@ foo = (5 + 6) + 7
 ```
 
 The named variable ("foo", in this case) is then available to use in subsequent expressions.
+
+This example demonstrates a number of advanced techniques, such as mutually recursive consumer rules, and operator precedence.

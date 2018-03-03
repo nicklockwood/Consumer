@@ -3,7 +3,7 @@
 //  ConsumerTests
 //
 //  Created by Nick Lockwood on 01/03/2018.
-//  Copyright © 2017 Nick Lockwood. All rights reserved.
+//  Copyright © 2018 Nick Lockwood. All rights reserved.
 //
 //  Distributed under the permissive MIT license
 //  Get the latest version from here:

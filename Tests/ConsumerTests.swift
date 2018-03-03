@@ -66,7 +66,7 @@ class ConsumerTests: XCTestCase {
 
     func testSequence() {
         let parser: Consumer<String> = .sequence([.string("foo"), .string("bar")])
-        XCTAssertEqual(try parser.match("foobar"), .node([.token("foo", 0 ..< 3), .token("bar", 3 ..< 6)]))
+        XCTAssertEqual(try parser.match("foobar"), .node(nil, [.token("foo", 0 ..< 3), .token("bar", 3 ..< 6)]))
         XCTAssertThrowsError(try parser.match("foo"))
         XCTAssertThrowsError(try parser.match("barfoo"))
         XCTAssertThrowsError(try parser.match(""))
@@ -75,15 +75,15 @@ class ConsumerTests: XCTestCase {
     func testOptional() {
         let parser: Consumer<String> = .optional(.string("foo"))
         XCTAssertEqual(try parser.match("foo"), .token("foo", 0 ..< 3))
-        XCTAssertEqual(try parser.match(""), .node([]))
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
         XCTAssertThrowsError(try parser.match("foobar"))
         XCTAssertThrowsError(try parser.match("barfoo"))
     }
 
     func testOptional2() {
         let parser: Consumer<String> = .sequence([.optional(.string("foo")), .string("bar")])
-        XCTAssertEqual(try parser.match("bar"), .node([.token("bar", 0 ..< 3)]))
-        XCTAssertEqual(try parser.match("foobar"), .node([.token("foo", 0 ..< 3), .token("bar", 3 ..< 6)]))
+        XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("foobar"), .node(nil, [.token("foo", 0 ..< 3), .token("bar", 3 ..< 6)]))
         XCTAssertThrowsError(try parser.match("foo"))
         XCTAssertThrowsError(try parser.match("barfoo"))
         XCTAssertThrowsError(try parser.match(""))
@@ -91,9 +91,9 @@ class ConsumerTests: XCTestCase {
 
     func testZeroOrMore() {
         let parser: Consumer<String> = .zeroOrMore(.string("foo"))
-        XCTAssertEqual(try parser.match("foo"), .node([.token("foo", 0 ..< 3)]))
-        XCTAssertEqual(try parser.match("foofoo"), .node([.token("foo", 0 ..< 3), .token("foo", 3 ..< 6)]))
-        XCTAssertEqual(try parser.match(""), .node([]))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("foofoo"), .node(nil, [.token("foo", 0 ..< 3), .token("foo", 3 ..< 6)]))
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
         XCTAssertThrowsError(try parser.match("foobar"))
         XCTAssertThrowsError(try parser.match("barfoo"))
     }
@@ -113,7 +113,7 @@ class ConsumerTests: XCTestCase {
 
     func testDiscardSequence() {
         let parser: Consumer<String> = .discard([.string("foo"), .string("bar")])
-        XCTAssertEqual(try parser.match("foobar"), .node([]))
+        XCTAssertEqual(try parser.match("foobar"), .node(nil, []))
     }
 
     func testReplaceSequence() {
@@ -157,8 +157,8 @@ class ConsumerTests: XCTestCase {
 
     func testOneOrMore() {
         let parser: Consumer<String> = .oneOrMore(.string("foo"))
-        XCTAssertEqual(try parser.match("foo"), .node([.token("foo", 0 ..< 3)]))
-        XCTAssertEqual(try parser.match("foofoo"), .node([.token("foo", 0 ..< 3), .token("foo", 3 ..< 6)]))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("foofoo"), .node(nil, [.token("foo", 0 ..< 3), .token("foo", 3 ..< 6)]))
         XCTAssertThrowsError(try parser.match("foobar"))
         XCTAssertThrowsError(try parser.match("barfoo"))
         XCTAssertThrowsError(try parser.match(""))

@@ -98,31 +98,30 @@ private let json: Consumer<Label> = .label(.json, [
 ])
 
 // Transform
-private let jsonTransform: Consumer<Label>.Transform = { name, value in
+private let jsonTransform: Consumer<Label>.Transform = { name, values in
     switch name {
     case .json:
-        return (value as! [Any]).first
+        return values[0]
     case .boolean:
-        return value as! String == "true"
+        return values[0] as! String == "true"
     case .null:
         return nil as Any? as Any
     case .string:
-        return (value as! [String]).joined()
+        return (values as! [String]).joined()
     case .number:
-        let value = value as! String
+        let value = values[0] as! String
         guard let number = Double(value) else {
             throw JSONError.invalidNumber(value)
         }
         return number
     case .array:
-        return value as! [Any]
+        return values
     case .object:
-        return Dictionary(value as! [(String, Any)]) { $1 }
+        return Dictionary(values as! [(String, Any)]) { $1 }
     case .keyValue:
-        let value = value as! [Any]
-        return (value[0] as! String, value[1])
+        return (values[0] as! String, values[1])
     case .unichar:
-        let value = value as! String
+        let value = values[0] as! String
         guard let hex = UInt32(value, radix: 16),
             let char = UnicodeScalar(hex) else {
             throw JSONError.invalidCodePoint(value)

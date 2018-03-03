@@ -13,32 +13,32 @@ public class State {
 }
 
 public func evaluate(_ input: String, state: State) throws -> Any? {
-    return try repl.match(input).transform { label, value in
+    let match = try repl.match(input)
+    return match.transform { label, values in
         switch label {
         case .bool:
-            return value as! String == "true"
+            return values[0] as! String == "true"
         case .number:
-            return Double(value as! String) ?? 0
+            return Double(values[0] as! String) ?? 0
         case .string:
-            return value as! String
+            return values[0] as! String
         case .variable:
-            return state.variables[value as! String] ?? (nil as Any? as Any)
+            return state.variables[values[0] as! String] ?? (nil as Any? as Any)
         case .factor:
-            let args = value as! [Any]
-            if args[0] as? String == "-" {
-                guard let value = args[1] as? Double else {
+            if values[0] as? String == "-" {
+                guard let value = values[1] as? Double else {
                     return Double.nan
                 }
                 return -value
             }
-            return args[0]
+            return values[0]
         case .term, .expression:
-            let args = value as! [Any]
-            if args.count == 1 {
-                return args[0]
+            if values.count == 1 {
+                return values[0]
             }
-            let op = args[1] as! String
-            guard let lhs = args[0] as? Double, let rhs = args[2] as? Double else {
+            let op = values[1] as! String
+            guard let lhs = values[0] as? Double,
+                let rhs = values[2] as? Double else {
                 return Double.nan
             }
             switch op {
@@ -54,13 +54,12 @@ public func evaluate(_ input: String, state: State) throws -> Any? {
                 preconditionFailure()
             }
         case .assignment:
-            let args = value as! [Any]
-            let lhs = args[0] as! String
-            let rhs = args[1]
+            let lhs = values[0] as! String
+            let rhs = values[1]
             state.variables[lhs] = rhs
             return rhs
-        case .basic:
-            return (value as! [Any]).first
+        case .repl:
+            return values[0]
         }
     }
 }
@@ -76,7 +75,7 @@ private enum Label: String {
     case term
     case expression
     case assignment
-    case basic
+    case repl
 }
 
 // boolean
@@ -134,4 +133,4 @@ private let assignment: Consumer<Label> = .label(.assignment, [
     identifier, space, .discard("="), space, expression,
 ])
 
-private let repl: Consumer<Label> = .label(.basic, [space, assignment | expression, space])
+private let repl: Consumer<Label> = .label(.repl, [space, assignment | expression, space])
