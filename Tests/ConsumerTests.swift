@@ -164,6 +164,41 @@ class ConsumerTests: XCTestCase {
         XCTAssertThrowsError(try parser.match(""))
     }
 
+    func testCharInString() {
+        let parser: Consumer<String> = .charInString("abc")
+        XCTAssertEqual(try parser.match("a"), .token("a", 0 ..< 1))
+        XCTAssertEqual(try parser.match("c"), .token("c", 0 ..< 1))
+        XCTAssertThrowsError(try parser.match("d"))
+    }
+
+    func testCharInString2() {
+        let parser: Consumer<String> = .charInString("\n\r\n")
+        XCTAssertEqual(try parser.match("\n"), .token("\n", 0 ..< 1))
+        XCTAssertEqual(try parser.match("\r\n"), .token("\r\n", 0 ..< 2))
+        XCTAssertThrowsError(try parser.match("\r"))
+    }
+
+    func testCharInRange() {
+        let parser: Consumer<String> = .charInRange("b", "c")
+        XCTAssertEqual(try parser.match("b"), .token("b", 0 ..< 1))
+        XCTAssertEqual(try parser.match("c"), .token("c", 0 ..< 1))
+        XCTAssertThrowsError(try parser.match("a"))
+        XCTAssertThrowsError(try parser.match("d"))
+    }
+
+    func testInterleaved() {
+        let parser: Consumer<String> = .interleaved("a", ",")
+        XCTAssertEqual(try parser.match("a,a"), .node(nil, [
+            .token("a", 0 ..< 1), .token(",", 1 ..< 2), .token("a", 2 ..< 3)
+        ]))
+        XCTAssertEqual(try parser.match("a"), .node(nil, [.token("a", 0 ..< 1)]))
+        XCTAssertThrowsError(try parser.match("a,"))
+        XCTAssertThrowsError(try parser.match("a,a,"))
+        XCTAssertThrowsError(try parser.match("a,b"))
+        XCTAssertThrowsError(try parser.match("aa"))
+        XCTAssertThrowsError(try parser.match(""))
+    }
+
     /// MARK: Errors
 
     func testUnmatchedInput() {

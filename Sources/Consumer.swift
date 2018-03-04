@@ -281,7 +281,8 @@ private extension Consumer {
                 }
                 return nil
             case let .sequence(consumers):
-                let start = index
+                let startIndex = index
+                let startOffset = offset
                 var matches = [Match]()
                 for consumer in consumers {
                     if let match = _match(consumer) {
@@ -299,7 +300,8 @@ private extension Consumer {
                             bestIndex = index
                             expected = consumer
                         }
-                        index = start
+                        index = startIndex
+                        offset = startOffset
                         return nil
                     }
                 }
