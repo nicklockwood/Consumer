@@ -20,8 +20,11 @@ let input = """
 """
 
 do {
-    let json = try parseJSON(input)
-    print(json)
+    // Evaluate json using interpreted parser
+    print(try parseJSON(input))
+
+    // Evaluate json using handwritten parser
+    print(try parseJSON2(input))
 } catch {
     print(error)
 }
