@@ -2,7 +2,7 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.1.1
+//  Version 0.2.0
 //
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
@@ -431,20 +431,27 @@ private extension Consumer.Match {
 extension Consumer.Error: CustomStringConvertible {
     /// Human-readable error description
     public var description: String {
-        let offset = self.offset.map { " at \($0)" } ?? ""
-        switch kind {
-        case let .expected(consumer) where remaining?.isEmpty == true:
-            return "Expected \(consumer)\(offset)"
-        case .expected, .unexpectedToken:
-            var token = ""
-            if var remaining = self.remaining {
+        var token = ""
+        if var remaining = self.remaining, let first = remaining.first {
+            let whitespace = " \t\n\r".unicodeScalars
+            if whitespace.contains(first) {
+                token = String(first)
+            } else {
                 while let char = remaining.popFirst(),
-                    !" \t\n\r".unicodeScalars.contains(char) {
+                    !whitespace.contains(char) {
                     token.append(Character(char))
                 }
             }
-            return token.isEmpty ? "Unexpected token\(offset)" :
-                "Unexpected token \(escapeString(token))\(offset)"
+        }
+        let offset = self.offset.map { " at \($0)" } ?? ""
+        switch kind {
+        case let .expected(consumer):
+            if !token.isEmpty {
+                return "Unexpected token \(escapeString(token))\(offset) (expected \(consumer))"
+            }
+            return "Expected \(consumer)\(offset)"
+        case .unexpectedToken:
+            return "Unexpected token \(escapeString(token))\(offset)"
         case let .custom(error):
             return "\(error)\(offset)"
         }
@@ -497,7 +504,7 @@ private func escapeCodePoint(_ codePoint: UInt32, inString: Bool = false) -> Str
         }
         let count = 4 - hex.count
         if count > 0 {
-            return "U+\(String.init(repeating: "0", count: count))\(hex)"
+            return "U+\(String(repeating: "0", count: count))\(hex)"
         }
         return "U+\(hex)"
     }

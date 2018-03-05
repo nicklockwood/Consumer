@@ -61,13 +61,13 @@ If you prefer, there's a framework for Mac and iOS that you can import which inc
 To install Consumer using CocoaPods, add the following to your Podfile:
 
 ```ruby
-pod 'Consumer', '~> 0.1'
+pod 'Consumer', '~> 0.2'
 ```
 
 To install using Carthage, add this to your Cartfile:
 
 ```
-github "nicklockwood/Consumer" ~> 0.1
+github "nicklockwood/Consumer" ~> 0.2
 ```
 
 ## Parsing
@@ -424,7 +424,7 @@ You can just write:
 let foobar: Consumer<String> = ["foo", "bar"]
 ```
 
-The logical or operator `|` is also overloaded for `Consumer` as an alternative to using `.any()`, so instead of:
+The OR operator `|` is also overloaded for `Consumer` as an alternative to using `.any()`, so instead of:
 
 ```swift
 let fooOrbar: Consumer<String> = .any(["foo", "bar"])
@@ -436,7 +436,7 @@ You can write:
 let fooOrbar: Consumer<String> = "foo" | "bar"
 ```
 
-Be careful when using the `|` operator for very complex expressions however, as it can cause Swift's compile time to go up exponentially due to the complexity of type inference. It's best to only use `|` for a small number of cases. If it's more than 4 or 5 you should probably use `any()` instead.
+Be careful when using the `|` operator for very complex expressions however, as it can cause Swift's compile time to go up exponentially due to the complexity of type inference. It's best to only use `|` for a small number of cases. If it's more than 4 or 5, or if it's deeply nested inside a complex expression, you should probably use `any()` instead.
 
 
 # Example Projects

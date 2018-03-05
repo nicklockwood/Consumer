@@ -189,7 +189,7 @@ class ConsumerTests: XCTestCase {
     func testInterleaved() {
         let parser: Consumer<String> = .interleaved("a", ",")
         XCTAssertEqual(try parser.match("a,a"), .node(nil, [
-            .token("a", 0 ..< 1), .token(",", 1 ..< 2), .token("a", 2 ..< 3)
+            .token("a", 0 ..< 1), .token(",", 1 ..< 2), .token("a", 2 ..< 3),
         ]))
         XCTAssertEqual(try parser.match("a"), .node(nil, [.token("a", 0 ..< 1)]))
         XCTAssertThrowsError(try parser.match("a,"))
@@ -212,6 +212,7 @@ class ConsumerTests: XCTestCase {
             default:
                 XCTFail()
             }
+            XCTAssertEqual(error.description, "Unexpected token ' ' at 3")
         }
     }
 
@@ -226,20 +227,22 @@ class ConsumerTests: XCTestCase {
             default:
                 XCTFail()
             }
+            XCTAssertEqual(error.description, "Expected \"foo\" at 0")
         }
     }
 
     func testUnexpectedToken() {
-        let parser: Consumer<String> = [.oneOrMore("foo"), "baz"]
+        let parser: Consumer<String> = ["foo", "bar"]
         let input = "foofoobar"
         XCTAssertThrowsError(try parser.match(input)) { error in
             let error = error as! Consumer<String>.Error
             switch error.kind {
-            case .expected("baz"):
-                XCTAssertEqual(error.offset, 6)
+            case .expected("bar"):
+                XCTAssertEqual(error.offset, 3)
             default:
                 XCTFail()
             }
+            XCTAssertEqual(error.description, "Unexpected token \"foobar\" at 3 (expected \"bar\")")
         }
     }
 
@@ -254,6 +257,7 @@ class ConsumerTests: XCTestCase {
             default:
                 XCTFail()
             }
+            XCTAssertEqual(error.description, "Unexpected token \"bar\" at 6 (expected \"baz\")")
         }
     }
 
