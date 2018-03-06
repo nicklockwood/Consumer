@@ -261,7 +261,7 @@ class ConsumerTests: XCTestCase {
         }
     }
 
-    /// MARK: Consumer Description
+    /// MARK: Consumer description
 
     func testStringDescription() {
         XCTAssertEqual(Consumer<String>.string("foo").description, "\"foo\"")
@@ -276,5 +276,45 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(Consumer<String>.string("Zöe").description, "\"Z\\u{F6}e\"")
         XCTAssertEqual(Consumer<String>.string("👍").description, "U+1F44D")
         XCTAssertEqual(Consumer<String>.string("Thanks 👍").description, "\"Thanks \\u{1F44D}\"")
+    }
+
+    /// MARK: Edge cases with optionals
+
+    func testZeroOrMoreOptionals() {
+        let parser: Consumer<String> = .zeroOrMore([.optional("foo")])
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
+            .token("foo", 0 ..< 3), .token("foo", 3 ..< 6)
+        ]))
+    }
+
+    func testZeroOrMoreZeroOrMores() {
+        let parser: Consumer<String> = .zeroOrMore([.zeroOrMore("foo")])
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
+            .token("foo", 0 ..< 3), .token("foo", 3 ..< 6)
+        ]))
+    }
+
+    func testZeroOrMoreAnyOptionals() {
+        let parser: Consumer<String> = [.zeroOrMore(.optional("foo") | .optional("bar"))]
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("barfoo"), .node(nil, [
+            .token("bar", 0 ..< 3), .token("foo", 3 ..< 6)
+        ]))
+    }
+
+    func testZeroOrMoreSequencesOfOptionals() {
+        let parser: Consumer<String> = [.zeroOrMore([.optional("foo"), .optional("bar")])]
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("barfoo"), .node(nil, [
+            .token("bar", 0 ..< 3), .token("foo", 3 ..< 6)
+        ]))
     }
 }

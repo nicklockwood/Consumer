@@ -274,8 +274,9 @@ private extension Consumer {
                 }
                 return nil
             case let .any(consumers):
+                let startIndex = index
                 for consumer in consumers {
-                    if let match = _match(consumer) {
+                    if let match = _match(consumer), index > startIndex {
                         return match
                     }
                 }
@@ -310,7 +311,9 @@ private extension Consumer {
                 return _match(consumer) ?? .node(nil, [])
             case let .zeroOrMore(consumer):
                 var matches = [Match]()
-                while let match = _match(consumer) {
+                var lastIndex = index
+                while let match = _match(consumer), index > lastIndex {
+                    lastIndex = index
                     switch match {
                     case let .node(name, _matches):
                         if name != nil {
