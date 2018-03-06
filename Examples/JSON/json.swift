@@ -63,8 +63,9 @@ private let string: Consumer<Label> = .label(.string, [
                 .discard("u"), hexdigit, hexdigit, hexdigit, hexdigit,
             ])),
         ])],
-        .codePoint(0 ... 33), // Up to "
-        .codePoint(35 ... 0x10FFFF), // From "
+        .flatten(.oneOrMore(.codePoint(0 ... 33))), // Up to "
+        .flatten(.oneOrMore(.codePoint(35 ... 91))), // Up to \
+        .flatten(.oneOrMore(.codePoint(93 ... 0x10FFFF))), // From "
     ])),
     .discard("\""),
 ])

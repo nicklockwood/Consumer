@@ -231,6 +231,103 @@ private extension Consumer {
         var bestIndex = input.startIndex
         var expected: Consumer?
 
+        func _skipString(_ string: String) -> Bool {
+            let scalars = string.unicodeScalars
+            var newOffset = offset
+            var newIndex = index
+            for c in scalars {
+                guard newIndex < input.endIndex, input[newIndex] == c else {
+                    if newIndex > bestIndex {
+                        bestIndex = index
+                        expected = .string(string)
+                    }
+                    return false
+                }
+                newOffset += 1
+                newIndex = input.index(after: newIndex)
+            }
+            index = newIndex
+            offset = newOffset
+            return true
+        }
+
+        func _skipCodePoint(_ range: CountableClosedRange<UInt32>) -> Bool {
+            if index < input.endIndex, range.contains(input[index].value) {
+                offset += 1
+                index = input.index(after: index)
+                return true
+            }
+            return false
+        }
+
+        func _matchString(_ consumer: Consumer) -> String? {
+            switch consumer {
+            case let .label(name, _consumer):
+                consumersByName[name] = consumer
+                return _matchString(_consumer)
+            case let .reference(name):
+                guard let consumer = consumersByName[name] else {
+                    preconditionFailure("Undefined reference for consumer '\(name)'")
+                }
+                return _matchString(consumer)
+            case let .string(string):
+                return _skipString(string) ? string : nil
+            case let .codePoint(range):
+                let startIndex = index
+                return _skipCodePoint(range) ? String(input[startIndex]) : nil
+            case let .any(consumers):
+                let startIndex = index
+                for consumer in consumers {
+                    if let match = _matchString(consumer), index > startIndex {
+                        return match
+                    }
+                }
+                return nil
+            case let .sequence(consumers):
+                let startIndex = index
+                let startOffset = offset
+                var result = ""
+                for consumer in consumers {
+                    if let match = _matchString(consumer) {
+                        result.append(match)
+                    } else {
+                        if index > bestIndex {
+                            bestIndex = index
+                            expected = consumer
+                        }
+                        index = startIndex
+                        offset = startOffset
+                        return nil
+                    }
+                }
+                return result
+            case let .optional(consumer):
+                return _matchString(consumer) ?? ""
+            case let .zeroOrMore(consumer):
+                if case let .codePoint(range) = consumer {
+                    let startIndex = index
+                    while _skipCodePoint(range) {}
+                    if index > startIndex {
+                        return String(input[startIndex ..< index])
+                    }
+                    return ""
+                }
+                var result = ""
+                var lastIndex = index
+                while let match = _matchString(consumer), index > lastIndex {
+                    lastIndex = index
+                    result.append(match)
+                }
+                return result
+            case let .flatten(consumer):
+                return _matchString(consumer)
+            case let .discard(consumer):
+                return _matchString(consumer).map { _ in "" }
+            case let .replace(consumer, replacement):
+                return _matchString(consumer).map { _ in replacement }
+            }
+        }
+
         func _match(_ consumer: Consumer) -> Match? {
             switch consumer {
             case let .label(name, _consumer):
@@ -249,30 +346,12 @@ private extension Consumer {
                 }
                 return _match(consumer)
             case let .string(string):
-                let scalars = string.unicodeScalars
-                var newOffset = offset
-                var newIndex = index
-                for c in scalars {
-                    guard newIndex < input.endIndex, input[newIndex] == c else {
-                        if newIndex > bestIndex {
-                            bestIndex = index
-                            expected = consumer
-                        }
-                        return nil
-                    }
-                    newOffset += 1
-                    newIndex = input.index(after: newIndex)
-                }
-                index = newIndex
-                defer { offset = newOffset }
-                return .token(string, offset ..< newOffset)
+                let startOffset = offset
+                return _skipString(string) ? .token(string, startOffset ..< offset) : nil
             case let .codePoint(range):
-                if index < input.endIndex, range.contains(input[index].value) {
-                    offset += 1
-                    defer { index = input.index(after: index) }
-                    return .token(String(input[index]), offset - 1 ..< offset)
-                }
-                return nil
+                let startIndex = index
+                let string = String(input[startIndex])
+                return _skipCodePoint(range) ? .token(string, offset - 1 ..< offset) : nil
             case let .any(consumers):
                 let startIndex = index
                 for consumer in consumers {
@@ -310,6 +389,20 @@ private extension Consumer {
             case let .optional(consumer):
                 return _match(consumer) ?? .node(nil, [])
             case let .zeroOrMore(consumer):
+                if case let .codePoint(range) = consumer {
+                    let startIndex = index
+                    var startOffset = offset
+                    while _skipCodePoint(range) {}
+                    if index > startIndex {
+                        var matches = [Match]()
+                        for c in input[startIndex ..< index] {
+                            matches.append(.token(String(c), startOffset ..< startOffset + 1))
+                            startOffset += 1
+                        }
+                        return .node(nil, matches)
+                    }
+                    return .node(nil, [])
+                }
                 var matches = [Match]()
                 var lastIndex = index
                 while let match = _match(consumer), index > lastIndex {
@@ -326,11 +419,13 @@ private extension Consumer {
                 }
                 return .node(nil, matches)
             case let .flatten(consumer):
-                return _match(consumer)?.flatten()
+                let startOffset = offset
+                return _matchString(consumer).map { .token($0, startOffset ..< offset) }
             case let .discard(consumer):
-                return _match(consumer).map { _ in .node(nil, []) }
+                return _matchString(consumer).map { _ in .node(nil, []) }
             case let .replace(consumer, replacement):
-                return _match(consumer).map { .token(replacement, $0.range) }
+                let startOffset = offset
+                return _matchString(consumer).map { _ in .token(replacement, startOffset ..< offset) }
             }
         }
         if let match = _match(self) {
