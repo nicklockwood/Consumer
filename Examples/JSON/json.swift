@@ -52,20 +52,19 @@ private let hexdigit: Consumer<Label> = digit | .charInRange("a", "f") | .charIn
 private let string: Consumer<Label> = .label(.string, [
     .discard("\""),
     .zeroOrMore(.any([
-        .replace("\\\"", "\""),
-        .replace("\\\\", "\\"),
-        .replace("\\/", "/"),
-        .replace("\\b", "\u{8}"),
-        .replace("\\f", "\u{C}"),
-        .replace("\\n", "\n"),
-        .replace("\\r", "\r"),
-        .replace("\\t", "\t"),
-        .label(.unichar, .flatten([
-            .discard("\\u"),
-            hexdigit, hexdigit, hexdigit, hexdigit,
-        ])),
-        .charInRange(UnicodeScalar(0)!, "!"), // Up to "
-        .charInRange("#", UnicodeScalar(0x10FFFF)!), // From "
+        [.discard("\\"), .any([
+            "\"", "\\", "/",
+            .replace("b", "\u{8}"),
+            .replace("f", "\u{C}"),
+            .replace("n", "\n"),
+            .replace("r", "\r"),
+            .replace("t", "\t"),
+            .label(.unichar, .flatten([
+                .discard("u"), hexdigit, hexdigit, hexdigit, hexdigit,
+            ])),
+        ])],
+        .codePoint(0 ... 33), // Up to "
+        .codePoint(35 ... 0x10FFFF), // From "
     ])),
     .discard("\""),
 ])
@@ -81,9 +80,7 @@ private let object: Consumer<Label> = .label(.object, [
     .discard("{"),
     .optional(.interleaved(
         .label(.keyValue, [
-            space,
-            string,
-            space,
+            space, string, space,
             .discard(":"),
             .reference(.json),
         ]),
@@ -92,9 +89,7 @@ private let object: Consumer<Label> = .label(.object, [
     .discard("}"),
 ])
 private let json: Consumer<Label> = .label(.json, [
-    space,
-    boolean | null | number | string | object | array,
-    space,
+    space, boolean | null | number | string | object | array, space,
 ])
 
 // Transform

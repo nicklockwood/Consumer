@@ -18,6 +18,7 @@
     - [Typed Labels](#typed-labels)
     - [Forward References](#forward-references)
     - [Syntax Sugar](#syntax-sugar)
+    - [Performance](#performance)
 - [Example Projects](#example-projects)
     - [JSON](#json)
     - [REPL](#repl)
@@ -393,7 +394,6 @@ So now we've switched things up so that `json` is defined first, and has a forwa
 
 You can avoid this problem if you ensure that references only point from child nodes to their parents, and that parent consumers reference their children directly, rather than by name.
 
-
 ## Syntax Sugar
 
 Consumer deliberately doesn't go overboard with custom operators because it can make code that is inscrutable to other Swift developers, however there are a few syntax extensions that can help to make your parser code a bit more readable:
@@ -437,6 +437,33 @@ let fooOrbar: Consumer<String> = "foo" | "bar"
 ```
 
 Be careful when using the `|` operator for very complex expressions however, as it can cause Swift's compile time to go up exponentially due to the complexity of type inference. It's best to only use `|` for a small number of cases. If it's more than 4 or 5, or if it's deeply nested inside a complex expression, you should probably use `any()` instead.
+
+## Performance
+
+The best way to get good parsing performance from your Consumer grammar is to try to avoid *backtracking*.
+
+Backtracking is when the parser has to throw away partially matched results and parse them again. It occurs when multiple consumers in a given `any` group begin with the same token or sequence of tokens.
+
+For example, here is an example of an inefficient pattern:
+
+```swift
+let foobarOrFoobaz: Consumer<String> = .any([
+    .sequence(["foo", "bar"]),
+    .sequence(["foo", "baz"]),
+])
+```
+
+When the parser encounters the input "foobaz", it will first match "foo", then try to match "bar". When that fails it will backtrack right back to the beginning and try the second sequence of "foo" followed by "baz". This will make parsing slower than it needs to be.
+
+We could instead rewrite this as:
+
+```swift
+let foobarOrFoobaz: Consumer<String> = .sequence([
+    "foo", .any(["bar", "baz"])
+])
+```
+
+This consumer matches exactly the same input as the previous one, but after successfully matching "foo", if it fails to match "bar" it will try "baz" immediately, instead of going back and matching "foo" again. We have eliminated the backtracking.
 
 
 # Example Projects
