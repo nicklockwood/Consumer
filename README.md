@@ -18,7 +18,10 @@
     - [Typed Labels](#typed-labels)
     - [Forward References](#forward-references)
     - [Syntax Sugar](#syntax-sugar)
-    - [Performance](#performance)
+- [Performance](#performance)
+    - [Backtracking](#backtracking)
+    - [CodePoint Sequences](#codepoint-sequences)
+    - [Flatten and Discard](#flatten-and-discard)
 - [Example Projects](#example-projects)
     - [JSON](#json)
     - [REPL](#repl)
@@ -438,7 +441,14 @@ let fooOrbar: Consumer<String> = "foo" | "bar"
 
 Be careful when using the `|` operator for very complex expressions however, as it can cause Swift's compile time to go up exponentially due to the complexity of type inference. It's best to only use `|` for a small number of cases. If it's more than 4 or 5, or if it's deeply nested inside a complex expression, you should probably use `any()` instead.
 
-## Performance
+
+# Performance
+
+The performance of a Consumer parser can be greatly affected by the way that your rules are structured. This section includes some tips for getting the best possible parsing speed.
+
+**Note:** As with any performance tuning, it's important that you *measure* the performance of your parser before and after making changes, otherwise you may waste time optimizing something that's already fast enough, or even inadvertently make it slower.
+
+## Backtracking
 
 The best way to get good parsing performance from your Consumer grammar is to try to avoid *backtracking*.
 
@@ -464,6 +474,53 @@ let foobarOrFoobaz: Consumer<String> = .sequence([
 ```
 
 This consumer matches exactly the same input as the previous one, but after successfully matching "foo", if it fails to match "bar" it will try "baz" immediately, instead of going back and matching "foo" again. We have eliminated the backtracking.
+
+## CodePoint Sequences
+
+The following consumer example matches a quoted string literal containing escaped quotes. It matches a zero or More instances of either an escaped quote `\"` or any other character besides `"`.
+
+```swift
+let string: Consumer<String> = .flatten(.sequence([
+    .discard("\""),
+    .zeroOrMore(.any([
+        .replace("\\\"", "\""), // Escaped "
+        .codePoint(0 ... 33), // Any character up to "
+        .codePoint(35 ... 0x10FFFF), // Any character from "
+    ])),
+    .discard("\""),
+]))
+```
+
+The above implementation works as expected, but it is not as efficient as it could be. For each character encountered, it must first check for an escaped quote, and then check if it's any other character. That's quite an expensive check to perform, and it can't (currently) be optimized by the Consumer framework.
+
+Consumer has optimized code paths for matching `.zeroOrMore(.codePoint(...))` or `.oneOrMore(.codePoint(...))` rules, and we can rewrite the string consumer to take advantage of this optimization as follows:
+
+```swift
+let string: Consumer<String> = .flatten(.sequence([
+    .discard("\""),
+    .zeroOrMore(.any([
+        .replace("\\\"", "\""), // Escaped "
+        .oneOrMore(.codePoint(0 ... 33)), // Any character up to "
+        .oneOrMore(.codePoint(35 ... 91)), // Any character up to \
+        .oneOrMore(.codePoint(93 ... 0x10FFFF)), // Any other character
+    ])),
+    .discard("\""),
+]))
+```
+
+Since most characters in a typical string are not \ or ", this will run much faster because it can efficiently consume a long run of non-escape characters at a time in between escape sequences.
+
+## Flatten and Discard
+
+We mentioned the `flatten` and `discard` transforms in the [Common Transforms](#common-transforms) section above, as a convenient way to omit redundant information from the parsing results prior to applying a custom transform.
+
+But using "flatten" and "discard" can also improve performance, by simplifying the parsing process, and avoiding the need to gather a propagate unnecessary information like source offsets.
+
+If you intend to eventually flatten a given node of your matched results, it's  much better to do this within the consumer itself by using the `flatten` rule than by using `joined()` in your transform function. The only time when you won't be able to do this is if some of the child consumers need custom transforms to be applied, because by flattening the node tree you remove the labels that are needed to reference the node in your transform.
+
+Similarly, for unneeded match results (e.g. commas, brackets and other punctuation that isn't needed after initial parsing) you should always use `discard` to remove the node or token from the match results before applying a transform.
+
+**Note:** Transform rules are applied hierarchically, so if a parent consumer already has `flatten` applied, there is no further performance benefit to be gained from applying it individually to the children of that consumer.
 
 
 # Example Projects

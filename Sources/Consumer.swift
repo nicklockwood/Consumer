@@ -260,6 +260,57 @@ private extension Consumer {
             return false
         }
 
+        func _skip(_ consumer: Consumer) -> Bool {
+            switch consumer {
+            case let .label(name, _consumer):
+                consumersByName[name] = consumer
+                return _skip(_consumer)
+            case let .reference(name):
+                guard let consumer = consumersByName[name] else {
+                    preconditionFailure("Undefined reference for consumer '\(name)'")
+                }
+                return _skip(consumer)
+            case let .string(string):
+                return _skipString(string)
+            case let .codePoint(range):
+                return _skipCodePoint(range)
+            case let .any(consumers):
+                return consumers.contains(where: _skip)
+            case let .sequence(consumers):
+                let startIndex = index
+                let startOffset = offset
+                for consumer in consumers where !_skip(consumer) {
+                    if index > bestIndex {
+                        bestIndex = index
+                        expected = consumer
+                    }
+                    index = startIndex
+                    offset = startOffset
+                    return false
+                }
+                return true
+            case let .optional(consumer):
+                return _skip(consumer) || true
+            case let .zeroOrMore(consumer):
+                switch consumer {
+                case let .codePoint(range):
+                    while _skipCodePoint(range) {}
+                case let .string(string) where !string.isEmpty:
+                    while _skipString(string) {}
+                default:
+                    var lastIndex = index
+                    while _skip(consumer), index > lastIndex {
+                        lastIndex = index
+                    }
+                }
+                return true
+            case let .flatten(consumer),
+                 let .discard(consumer),
+                 let .replace(consumer, _):
+                return _skip(consumer)
+            }
+        }
+
         func _matchString(_ consumer: Consumer) -> String? {
             switch consumer {
             case let .label(name, _consumer):
@@ -322,9 +373,9 @@ private extension Consumer {
             case let .flatten(consumer):
                 return _matchString(consumer)
             case let .discard(consumer):
-                return _matchString(consumer).map { _ in "" }
+                return _skip(consumer) ? "" : nil
             case let .replace(consumer, replacement):
-                return _matchString(consumer).map { _ in replacement }
+                return _skip(consumer) ? replacement : nil
             }
         }
 
@@ -422,10 +473,10 @@ private extension Consumer {
                 let startOffset = offset
                 return _matchString(consumer).map { .token($0, startOffset ..< offset) }
             case let .discard(consumer):
-                return _matchString(consumer).map { _ in .node(nil, []) }
+                return _skip(consumer) ? .node(nil, []) : nil
             case let .replace(consumer, replacement):
                 let startOffset = offset
-                return _matchString(consumer).map { _ in .token(replacement, startOffset ..< offset) }
+                return _skip(consumer) ? .token(replacement, startOffset ..< offset) : nil
             }
         }
         if let match = _match(self) {

@@ -38,7 +38,9 @@ private enum Label: String {
 }
 
 // Consumers
-private let space: Consumer<Label> = .discard(.zeroOrMore(.charInString(" \t\n\r")))
+private let space: Consumer<Label> = .discard(.zeroOrMore(
+    .oneOrMore(" ") | .oneOrMore("\t") | "\n" | "\r"
+))
 private let null: Consumer<Label> = .label(.null, "null")
 private let boolean: Consumer<Label> = .label(.boolean, "true" | "false")
 private let digit: Consumer<Label> = .charInRange("0", "9")

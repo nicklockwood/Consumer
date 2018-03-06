@@ -11,9 +11,9 @@
 				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
 				<dict>
 					<key>baselineAverage</key>
-					<real>0.00074331</real>
+					<real>0.00064067</real>
 					<key>baselineIntegrationDisplayName</key>
-					<string>6 Mar 2018 at 18:20:49</string>
+					<string>6 Mar 2018 at 18:27:01</string>
 				</dict>
 			</dict>
 			<key>testJSONConsumer()</key>
@@ -21,9 +21,9 @@
 				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
 				<dict>
 					<key>baselineAverage</key>
-					<real>0.016549</real>
+					<real>0.015666</real>
 					<key>baselineIntegrationDisplayName</key>
-					<string>6 Mar 2018 at 18:20:49</string>
+					<string>6 Mar 2018 at 18:27:01</string>
 				</dict>
 			</dict>
 			<key>testJSONSerialization()</key>
@@ -31,9 +31,9 @@
 				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
 				<dict>
 					<key>baselineAverage</key>
-					<real>0.00012204</real>
+					<real>0.00010545</real>
 					<key>baselineIntegrationDisplayName</key>
-					<string>6 Mar 2018 at 18:20:49</string>
+					<string>6 Mar 2018 at 18:27:01</string>
 				</dict>
 			</dict>
 		</dict>
