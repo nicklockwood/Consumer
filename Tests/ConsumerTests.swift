@@ -103,7 +103,7 @@ class ConsumerTests: XCTestCase {
     func testFlattenOptional() {
         let parser: Consumer<String> = .flatten(.optional(.string("foo")))
         XCTAssertEqual(try parser.match("foo"), .token("foo", 0 ..< 3))
-        XCTAssertEqual(try parser.match(""), .token("", nil))
+        XCTAssertEqual(try parser.match(""), .token("", 0 ..< 0))
     }
 
     func testFlattenSequence() {
@@ -285,7 +285,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(try parser.match(""), .node(nil, []))
         XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
         XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
-            .token("foo", 0 ..< 3), .token("foo", 3 ..< 6)
+            .token("foo", 0 ..< 3), .token("foo", 3 ..< 6),
         ]))
     }
 
@@ -294,7 +294,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(try parser.match(""), .node(nil, []))
         XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
         XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
-            .token("foo", 0 ..< 3), .token("foo", 3 ..< 6)
+            .token("foo", 0 ..< 3), .token("foo", 3 ..< 6),
         ]))
     }
 
@@ -304,7 +304,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
         XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", 0 ..< 3)]))
         XCTAssertEqual(try parser.match("barfoo"), .node(nil, [
-            .token("bar", 0 ..< 3), .token("foo", 3 ..< 6)
+            .token("bar", 0 ..< 3), .token("foo", 3 ..< 6),
         ]))
     }
 
@@ -314,7 +314,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
         XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", 0 ..< 3)]))
         XCTAssertEqual(try parser.match("barfoo"), .node(nil, [
-            .token("bar", 0 ..< 3), .token("foo", 3 ..< 6)
+            .token("bar", 0 ..< 3), .token("foo", 3 ..< 6),
         ]))
     }
 }

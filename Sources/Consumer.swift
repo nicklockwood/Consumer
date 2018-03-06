@@ -2,7 +2,7 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.2.0
+//  Version 0.2.1
 //
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.

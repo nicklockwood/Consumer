@@ -155,7 +155,7 @@ public func parseJSON2(_ input: String) throws -> Any {
                     let value = a + b + c + d
                     guard let hex = UInt32(value, radix: 16),
                         let char = UnicodeScalar(hex) else {
-                            throw Error(string: "Invalid code point \(value)")
+                        throw Error(string: "Invalid code point \(value)")
                     }
                     string.append(String(char))
                 default:
@@ -248,7 +248,7 @@ public func parseJSON2(_ input: String) throws -> Any {
         } else {
             while let char = remaining.popFirst(),
                 !whitespace.contains(char) {
-                    token.append(Character(char))
+                token.append(Character(char))
             }
         }
         return token
