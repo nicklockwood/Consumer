@@ -6,6 +6,8 @@
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
 //
 
+import Foundation
+
 // MARK: API
 
 public class State {
@@ -85,8 +87,9 @@ private enum Label: String {
 private let bool: Consumer<Label> = .label(.bool, "true" | "false")
 
 // number
-private let digit: Consumer<Label> = .charInRange("0", "9")
-private let integer: Consumer<Label> = "0" | [.charInRange("1", "9"), .zeroOrMore(digit)]
+private let digit: Consumer<Label> = .character(in: .decimalDigits)
+private let oneToNine: Consumer<Label> = .character(in: CharacterSet(charactersIn: "1" ... "9"))
+private let integer: Consumer<Label> = "0" | [oneToNine, .zeroOrMore(digit)]
 private let decimal: Consumer<Label> = [integer, .optional([".", .oneOrMore(digit)])]
 private let number: Consumer<Label> = .label(.number, .flatten(decimal))
 
@@ -100,19 +103,19 @@ private let string: Consumer<Label> = .label(.string, .flatten([
         .replace("\\r", "\r"),
         .replace("\\t", "\t"),
         .discard("\\"),
-        .charInRange(UnicodeScalar(0)!, "!"), // Up to "
-        .charInRange("#", UnicodeScalar(0x10FFFF)!), // From "
+        .character(in: CharacterSet(charactersIn: "\0" ... "!") // Up to "
+            .union(CharacterSet(charactersIn: "#" ... "\u{10FFFF}"))), // From "
     ])),
     .discard("\""),
 ]))
 
 // identifier
-private let alpha: Consumer<Label> = .charInRange("a", "z") | .charInRange("A", "Z")
-private let alphanumeric: Consumer<Label> = alpha | digit
+private let alpha: Consumer<Label> = .character(in: .letters)
+private let alphanumeric: Consumer<Label> = .character(in: .alphanumerics)
 private let identifier: Consumer<Label> = .flatten([alpha, .zeroOrMore(alphanumeric)])
 
 // rvalues
-private let space: Consumer<Label> = .discard(.zeroOrMore(.charInString(" \t\n\r")))
+private let space: Consumer<Label> = .discard(.zeroOrMore(.character(in: .whitespacesAndNewlines)))
 private let literal: Consumer<Label> = number | bool | string
 private let variable: Consumer<Label> = .label(.variable, identifier)
 private let subexpression: Consumer<Label> = [

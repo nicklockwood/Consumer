@@ -20,7 +20,7 @@
     - [Syntax Sugar](#syntax-sugar)
 - [Performance](#performance)
     - [Backtracking](#backtracking)
-    - [CodePoint Sequences](#codepoint-sequences)
+    - [Character Sequences](#character-sequences)
     - [Flatten and Discard](#flatten-and-discard)
 - [Example Projects](#example-projects)
     - [JSON](#json)
@@ -98,10 +98,10 @@ In this simple example above, the match will always succeed. If tested against a
 The example above is not very useful - there are much simpler ways to detect string equality! Let's try a slightly more advanced example. The following consumer matches an unsigned integer:
 
 ```swift
-let integer: Consumer<String> = .oneOrMore(.charInRange("0", "9"))
+let integer: Consumer<String> = .oneOrMore(.character(in: .decimalDigits))
 ```
 
-The top-level consumer in this case is of type `oneOrMore`, meaning that it matches one or more instances of the nested `charInRange("0", "9")` consumer. In other words, it will match any sequence of numeric digits.
+The top-level consumer in this case is of type `oneOrMore`, meaning that it matches one or more instances of the nested `.character(in: .decimalDigits)` consumer. In other words, it will match any sequence of decimal digits.
 
 There's a slight problem with this implementation though: An arbitrary sequence of digits might include leading zeros, e.g. `01234`, which could be mistaken for an octal number in some programming languages, or even just be treated as a syntax error. How can we modify the `integer` consumer to reject leading zeros?
 
@@ -109,8 +109,8 @@ We need to treat the first character differently from the subsequent ones, which
 
 ```swift
 let integer: Consumer<String> = .sequence([
-    .charInRange("1", "9"),
-    .zeroOrMore(.charInRange("0", "9")),
+    .character(in: CharacterSet(charactersIn: "1" ... "9")),
+    .zeroOrMore(.character(in: .decimalDigits)),
 ])
 ```
 
@@ -124,14 +124,14 @@ do {
 }
 ```
 
-We've introduced another bug though - Although leading zeros are correctly rejected, `0` on its own will now also be rejected since it doesn't start with 1 - 9. We need to accept *either* zero on its own, *or* the sequence we just defined. For that, we can use `any`:
+We've introduced another bug though - Although leading zeros are correctly rejected, "0" on its own will now also be rejected since it doesn't start with 1 - 9. We need to accept *either* zero on its own, *or* the sequence we just defined. For that, we can use `any`:
 
 ```swift
 let integer: Consumer<String> = .any([
     .string("0"),
     .sequence([
-        .charInRange("1", "9"),
-        .zeroOrMore(.charInRange("0", "9")),
+        .character(in: CharacterSet(charactersIn: "1" ... "9")),
+        .zeroOrMore(.character(in: .decimalDigits)),
     ]),
 ])
 ```
@@ -140,8 +140,8 @@ That will do what we want, but it's quite a bit more complex. To make it more re
 
 ```swift
 let zero: Consumer<String> = .string("0")
-let oneToNine: Consumer<String> = .charInRange("1", "9")
-let zeroToNine: Consumer<String> = .charInRange("0", "9")
+let oneToNine: Consumer<String> = .character(in: CharacterSet(charactersIn: "1" ... "9"))
+let zeroToNine: Consumer<String> = .character(in: .decimalDigits)
 
 let nonzeroInteger: Consumer<String> = .sequence([
     .oneToNine, .zeroOrMore(zeroToNine),
@@ -215,8 +215,8 @@ So, to transform the integer result, we must first give it a label, by using the
 let integer: Consumer<String> = .label("integer", .any([
     .string("0"),
     .sequence([
-        .charInRange("1", "9"),
-        .zeroOrMore(.charInRange("0", "9")),
+        .character(in: CharacterSet(charactersIn: "1" ... "9")),
+        .zeroOrMore(.character(in: .decimalDigits)),
     ]),
 ]))
 ```
@@ -276,8 +276,8 @@ Using the `flatten` consumer, we can simplify our integer transform a bit:
 let integer: Consumer<String> = .label("integer", .flatten(.any([
     .string("0"),
     .sequence([
-        .charInRange("1", "9"),
-        .zeroOrMore(.charInRange("0", "9")),
+        .character(in: CharacterSet(charactersIn: "1" ... "9")),
+        .zeroOrMore(.character(in: .decimalDigits)),
     ]),
 ])))
 
@@ -319,8 +319,8 @@ enum MyLabel: String {
 let integer: Consumer<MyLabel> = .label(.integer, .flatten(.any([
     .string("0"),
     .sequence([
-        .charInRange("1", "9"),
-        .zeroOrMore(.charInRange("0", "9")),
+        .character(in: CharacterSet(charactersIn: "1" ... "9")),
+        .zeroOrMore(.character(in: .decimalDigits)),
     ]),
 ])))
 
@@ -475,17 +475,17 @@ let foobarOrFoobaz: Consumer<String> = .sequence([
 
 This consumer matches exactly the same input as the previous one, but after successfully matching "foo", if it fails to match "bar" it will try "baz" immediately, instead of going back and matching "foo" again. We have eliminated the backtracking.
 
-## CodePoint Sequences
+## Character Sequences
 
 The following consumer example matches a quoted string literal containing escaped quotes. It matches a zero or More instances of either an escaped quote `\"` or any other character besides `"`.
 
 ```swift
+let stringChars = CharacterSet(charactersIn: "\0" ... "\u{10FFFF}").subtracting(CharacterSet(charactersIn: "\"")) // Any character except "
 let string: Consumer<String> = .flatten(.sequence([
     .discard("\""),
     .zeroOrMore(.any([
         .replace("\\\"", "\""), // Escaped "
-        .codePoint(0 ... 33), // Any character up to "
-        .codePoint(35 ... 0x10FFFF), // Any character from "
+        .character(in: stringChars),
     ])),
     .discard("\""),
 ]))
@@ -493,22 +493,21 @@ let string: Consumer<String> = .flatten(.sequence([
 
 The above implementation works as expected, but it is not as efficient as it could be. For each character encountered, it must first check for an escaped quote, and then check if it's any other character. That's quite an expensive check to perform, and it can't (currently) be optimized by the Consumer framework.
 
-Consumer has optimized code paths for matching `.zeroOrMore(.codePoint(...))` or `.oneOrMore(.codePoint(...))` rules, and we can rewrite the string consumer to take advantage of this optimization as follows:
+Consumer has optimized code paths for matching `.zeroOrMore(.character(...))` or `.oneOrMore(.character(...))` rules, and we can rewrite the string consumer to take advantage of this optimization as follows:
 
 ```swift
+let stringChars = CharacterSet(charactersIn: "\0" ... "\u{10FFFF}").subtracting(CharacterSet(charactersIn: "\"\\")) // Any character except " and \
 let string: Consumer<String> = .flatten(.sequence([
     .discard("\""),
     .zeroOrMore(.any([
         .replace("\\\"", "\""), // Escaped "
-        .oneOrMore(.codePoint(0 ... 33)), // Any character up to "
-        .oneOrMore(.codePoint(35 ... 91)), // Any character up to \
-        .oneOrMore(.codePoint(93 ... 0x10FFFF)), // Any other character
+        .oneOrMore(.character(in: stringChars)),
     ])),
     .discard("\""),
 ]))
 ```
 
-Since most characters in a typical string are not \ or ", this will run much faster because it can efficiently consume a long run of non-escape characters at a time in between escape sequences.
+Since most characters in a typical string are not \ or ", this will run much faster because it can efficiently consume a long run of non-escape characters between each escape sequence.
 
 ## Flatten and Discard
 
