@@ -163,6 +163,9 @@ extension Consumer: CustomStringConvertible {
         case let .string(string):
             return escapeString(string)
         case let .codePoint(range):
+            if range.upperBound == range.lowerBound {
+                return escapeCodePoint(range.lowerBound)
+            }
             return "\(escapeCodePoint(range.lowerBound)) – \(escapeCodePoint(range.upperBound))"
         case let .any(consumers):
             switch consumers.count {
@@ -174,9 +177,17 @@ extension Consumer: CustomStringConvertible {
                 return "nothing"
             }
         case let .sequence(consumers):
-            return consumers.first { !$0.description.isEmpty }?.description ?? ""
-        case .optional, .zeroOrMore:
-            return ""
+            var options = [Consumer]()
+            for consumer in consumers {
+                options.append(consumer)
+                if !consumer._isOptional {
+                    break
+                }
+            }
+            return Consumer.any(options).description
+        case let .optional(consumer),
+             let .zeroOrMore(consumer):
+            return consumer.description
         case let .flatten(consumer),
              let .discard(consumer),
              let .replace(consumer, _):
@@ -222,6 +233,29 @@ extension Consumer: CustomStringConvertible {
 }
 
 private extension Consumer {
+    var _isOptional: Bool {
+        switch self {
+        case .reference:
+            // TODO: not sure if this is right, but we
+            // need to avoid infinite recursion
+            return false
+        case let .label(_, consumer):
+            return consumer._isOptional
+        case .string, .codePoint:
+            return false
+        case let .any(consumers):
+            return consumers.contains { $0._isOptional }
+        case let .sequence(consumers):
+            return !consumers.contains { !$0._isOptional }
+        case .optional, .zeroOrMore:
+            return true
+        case let .flatten(consumer),
+             let .discard(consumer),
+             let .replace(consumer, _):
+            return consumer._isOptional
+        }
+    }
+
     func _match(_ input: String) throws -> Match {
         var consumersByName = [Label: Consumer]()
         let input = input.unicodeScalars
@@ -505,7 +539,7 @@ extension Consumer.Match: CustomStringConvertible {
                     return name.map { "(\($0))" } ?? "()"
                 case 1:
                     let description = _description(matches[0], indent)
-                    return name.map { "(\($0) \(description))" } ?? description
+                    return name.map { "(\($0) \(description))" } ?? "(\(description))"
                 default:
                     return """
                     (\(name.map { "\($0)" } ?? "")

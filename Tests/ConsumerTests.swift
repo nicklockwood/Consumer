@@ -98,7 +98,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertThrowsError(try parser.match("barfoo"))
     }
 
-    /// MARK: Transforms
+    /// MARK: Standard transforms
 
     func testFlattenOptional() {
         let parser: Consumer<String> = .flatten(.optional(.string("foo")))
@@ -263,6 +263,11 @@ class ConsumerTests: XCTestCase {
 
     /// MARK: Consumer description
 
+    func testLabelAndReferenceDescription() {
+        XCTAssertEqual(Consumer<String>.label("foo", "bar").description, "foo")
+        XCTAssertEqual(Consumer<String>.reference("foo").description, "foo")
+    }
+
     func testStringDescription() {
         XCTAssertEqual(Consumer<String>.string("foo").description, "\"foo\"")
         XCTAssertEqual(Consumer<String>.string("\0").description, "'\\0'")
@@ -276,6 +281,87 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(Consumer<String>.string("Zöe").description, "\"Z\\u{F6}e\"")
         XCTAssertEqual(Consumer<String>.string("👍").description, "U+1F44D")
         XCTAssertEqual(Consumer<String>.string("Thanks 👍").description, "\"Thanks \\u{1F44D}\"")
+    }
+
+    func testCodePointDescription() {
+        XCTAssertEqual(Consumer<String>.codePoint(65 ... 70).description, "'A' – 'F'")
+        XCTAssertEqual(Consumer<String>.codePoint(257 ... 999).description, "U+0101 – U+03E7")
+        XCTAssertEqual(Consumer<String>.charInRange("👍", "👍").description, "U+1F44D")
+    }
+
+    func testAnyDescription() {
+        XCTAssertEqual(Consumer<String>.any(["foo", "bar"]).description, "\"foo\" or \"bar\"")
+        XCTAssertEqual(Consumer<String>.any(["a", "b", "c"]).description, "'a', 'b' or 'c'")
+        XCTAssertEqual(Consumer<String>.any([.optional("a"), "b"]).description, "'a' or 'b'")
+        XCTAssertEqual(Consumer<String>.any(["foo"]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.any([]).description, "nothing")
+    }
+
+    func testSequenceDescription() {
+        XCTAssertEqual(Consumer<String>.sequence(["foo", "bar"]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.sequence(["a" | "b"]).description, "'a' or 'b'")
+        XCTAssertEqual(Consumer<String>.sequence([.optional("a"), "b"]).description, "'a' or 'b'")
+        XCTAssertEqual(Consumer<String>.sequence(["foo"]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.sequence([.reference("foo")]).description, "foo")
+        XCTAssertEqual(Consumer<String>.sequence([.label("foo", "bar")]).description, "foo")
+        XCTAssertEqual(Consumer<String>.sequence([.sequence(["foo"])]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.sequence([[.optional("foo"), "b"]]).description, "\"foo\" or 'b'")
+        XCTAssertEqual(Consumer<String>.sequence([.flatten("foo")]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.sequence([.discard("foo")]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.sequence([.replace("foo", "bar")]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.sequence([]).description, "nothing")
+    }
+
+    func testOptionalAndZeroOrMore() {
+        XCTAssertEqual(Consumer<String>.optional("foo").description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.zeroOrMore("foo").description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.zeroOrMore(.optional("foo")).description, "\"foo\"")
+    }
+
+    func testFlattenDiscardReplace() {
+        XCTAssertEqual(Consumer<String>.flatten("foo").description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.discard("foo").description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.replace("foo", "bar").description, "\"foo\"")
+    }
+
+    /// MARK: Match descriptions
+
+    func testTokenDescription() {
+        XCTAssertEqual(Consumer<String>.Match.token("foo", nil).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.Match.token("a", 1 ..< 3).description, "'a'")
+    }
+
+    func testNodeDescription() {
+        XCTAssertEqual(Consumer<String>.Match.node(nil, [.token("foo", nil)]).description, "(\"foo\")")
+        XCTAssertEqual(Consumer<String>.Match.node(nil, []).description, "()")
+        XCTAssertEqual(Consumer<String>.Match.node(nil, [
+            .token("foo", nil), .token("bar", nil)
+        ]).description, "(\n    \"foo\"\n    \"bar\"\n)")
+        XCTAssertEqual(Consumer<String>.Match.node("foo", [.token("bar", nil)]).description, "(foo \"bar\")")
+        XCTAssertEqual(Consumer<String>.Match.node("foo", []).description, "(foo)")
+        XCTAssertEqual(Consumer<String>.Match.node("foo", [
+            .token("bar", nil), .token("baz", nil)
+        ]).description, "(foo\n    \"bar\"\n    \"baz\"\n)")
+    }
+
+    func testNestedNodeDescription() {
+        XCTAssertEqual(Consumer<String>.Match.node("foo", [
+            .node("bar", [.token("baz", nil), .token("quux", nil)]),
+        ]).description, """
+        (foo (bar
+            "baz"
+            "quux"
+        ))
+        """)
+        XCTAssertEqual(Consumer<String>.Match.node("foo", [
+            .node("bar", [.token("baz", nil)]),
+            .node("quux", []),
+        ]).description, """
+        (foo
+            (bar "baz")
+            (quux)
+        )
+        """)
     }
 
     /// MARK: Edge cases with optionals
