@@ -46,15 +46,11 @@ private let boolean: Consumer<Label> = .label(.boolean, "true" | "false")
 private let digit: Consumer<Label> = .character(in: .decimalDigits)
 private let number: Consumer<Label> = .label(.number, .flatten([
     .optional("-"),
-    "0" | [.character(in: CharacterSet(charactersIn: "1" ... "9")), .zeroOrMore(digit)],
+    "0" | [.character(in: "1" ... "9"), .zeroOrMore(digit)],
     .optional([".", .oneOrMore(digit)]),
     .optional(["e" | "E", .optional("+" | "-"), .oneOrMore(digit)]),
 ]))
-private let hexdigit: Consumer<Label> = .character(in:
-    CharacterSet(charactersIn: "abcdefABCDEF").union(.decimalDigits))
-private let stringChar: Consumer<Label> = .character(in:
-    CharacterSet(charactersIn: "\0" ... "\u{10FFFF}")
-    .subtracting(CharacterSet(charactersIn: "\"\\")))
+private let hexdigit: Consumer<Label> = digit | .character(in: "a" ... "f") | .character(in: "A" ... "F")
 private let string: Consumer<Label> = .label(.string, [
     .discard("\""),
     .zeroOrMore(.any([
@@ -69,7 +65,7 @@ private let string: Consumer<Label> = .label(.string, [
                 .discard("u"), hexdigit, hexdigit, hexdigit, hexdigit,
             ])),
         ])],
-        .flatten(.oneOrMore(stringChar)), // All except " and \
+        .flatten(.oneOrMore(.anyCharacter(except: "\"", "\\"))),
     ])),
     .discard("\""),
 ])

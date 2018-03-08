@@ -44,7 +44,7 @@ class ConsumerTests: XCTestCase {
     }
 
     func testCharacter() {
-        let parser: Consumer<String> = .character(in: CharacterSet(charactersIn: "a" ... "c"))
+        let parser: Consumer<String> = .character(in: "a" ... "c")
         XCTAssertEqual(try parser.match("a"), .token("a", 0 ..< 1))
         XCTAssertEqual(try parser.match("c"), .token("c", 0 ..< 1))
         XCTAssertThrowsError(try parser.match("d"))
@@ -261,15 +261,10 @@ class ConsumerTests: XCTestCase {
     }
 
     func testCharacterDescription() {
-        XCTAssertEqual(Consumer<String>.character(in:
-                CharacterSet(charactersIn: "A" ... "F")
-        ).description, "'A' – 'F'")
-        XCTAssertEqual(Consumer<String>.character(in:
-                CharacterSet(charactersIn: UnicodeScalar(257)! ... UnicodeScalar(999)!)
-        ).description, "U+0101 – U+03E7")
-        XCTAssertEqual(Consumer<String>.character(in:
-                CharacterSet(charactersIn: "👍" ... "👍")
-        ).description, "U+1F44D")
+        XCTAssertEqual(Consumer<String>.character(in: "A" ... "F").description, "'A' – 'F'")
+        XCTAssertEqual(Consumer<String>
+            .character(in: UnicodeScalar(257)! ... UnicodeScalar(999)!).description, "U+0101 – U+03E7")
+        XCTAssertEqual(Consumer<String>.character(in: "👍" ... "👍").description, "U+1F44D")
     }
 
     func testAnyDescription() {

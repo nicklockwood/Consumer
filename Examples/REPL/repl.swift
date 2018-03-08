@@ -88,7 +88,7 @@ private let bool: Consumer<Label> = .label(.bool, "true" | "false")
 
 // number
 private let digit: Consumer<Label> = .character(in: .decimalDigits)
-private let oneToNine: Consumer<Label> = .character(in: CharacterSet(charactersIn: "1" ... "9"))
+private let oneToNine: Consumer<Label> = .character(in: "1" ... "9")
 private let integer: Consumer<Label> = "0" | [oneToNine, .zeroOrMore(digit)]
 private let decimal: Consumer<Label> = [integer, .optional([".", .oneOrMore(digit)])]
 private let number: Consumer<Label> = .label(.number, .flatten(decimal))
@@ -103,8 +103,7 @@ private let string: Consumer<Label> = .label(.string, .flatten([
         .replace("\\r", "\r"),
         .replace("\\t", "\t"),
         .discard("\\"),
-        .character(in: CharacterSet(charactersIn: "\0" ... "!") // Up to "
-            .union(CharacterSet(charactersIn: "#" ... "\u{10FFFF}"))), // From "
+        .anyCharacter(except: "\"", "\\"),
     ])),
     .discard("\""),
 ]))

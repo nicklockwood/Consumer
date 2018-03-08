@@ -76,7 +76,7 @@ github "nicklockwood/Consumer" ~> 0.2
 
 ## Parsing
 
-The `Consumer` type is an enum, so you can create a consumer by just assigning one of its possible values to a variable. For example, here is a consumer that matches the string "foo":
+The `Consumer` type is an enum, so you can create a consumer by assigning one of its possible values to a variable. For example, here is a consumer that matches the string "foo":
 
 ```swift
 let foo: Consumer<String> = .string("foo")
@@ -109,7 +109,7 @@ We need to treat the first character differently from the subsequent ones, which
 
 ```swift
 let integer: Consumer<String> = .sequence([
-    .character(in: CharacterSet(charactersIn: "1" ... "9")),
+    .character(in: "1" ... "9"),
     .zeroOrMore(.character(in: .decimalDigits)),
 ])
 ```
@@ -128,9 +128,9 @@ We've introduced another bug though - Although leading zeros are correctly rejec
 
 ```swift
 let integer: Consumer<String> = .any([
-    .string("0"),
+    .character("0"),
     .sequence([
-        .character(in: CharacterSet(charactersIn: "1" ... "9")),
+        .character(in: "1" ... "9"),
         .zeroOrMore(.character(in: .decimalDigits)),
     ]),
 ])
@@ -139,8 +139,8 @@ let integer: Consumer<String> = .any([
 That will do what we want, but it's quite a bit more complex. To make it more readable, we could break it up into separate variables:
 
 ```swift
-let zero: Consumer<String> = .string("0")
-let oneToNine: Consumer<String> = .character(in: CharacterSet(charactersIn: "1" ... "9"))
+let zero: Consumer<String> = .character("0")
+let oneToNine: Consumer<String> = .character(in: "1" ... "9")
 let zeroToNine: Consumer<String> = .character(in: .decimalDigits)
 
 let nonzeroInteger: Consumer<String> = .sequence([
@@ -213,9 +213,9 @@ So, to transform the integer result, we must first give it a label, by using the
 
 ```swift
 let integer: Consumer<String> = .label("integer", .any([
-    .string("0"),
+    .character("0"),
     .sequence([
-        .character(in: CharacterSet(charactersIn: "1" ... "9")),
+        .character(in: "1" ... "9"),
         .zeroOrMore(.character(in: .decimalDigits)),
     ]),
 ]))
@@ -274,9 +274,9 @@ Using the `flatten` consumer, we can simplify our integer transform a bit:
 
 ```swift
 let integer: Consumer<String> = .label("integer", .flatten(.any([
-    .string("0"),
+    .character("0"),
     .sequence([
-        .character(in: CharacterSet(charactersIn: "1" ... "9")),
+        .character(in: "1" ... "9"),
         .zeroOrMore(.character(in: .decimalDigits)),
     ]),
 ])))
@@ -317,9 +317,9 @@ enum MyLabel: String {
 }
 
 let integer: Consumer<MyLabel> = .label(.integer, .flatten(.any([
-    .string("0"),
+    .character("0"),
     .sequence([
-        .character(in: CharacterSet(charactersIn: "1" ... "9")),
+        .character(in: "1" ... "9"),
         .zeroOrMore(.character(in: .decimalDigits)),
     ]),
 ])))

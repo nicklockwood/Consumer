@@ -38,7 +38,7 @@ import Foundation
 public indirect enum Consumer<Label: Hashable>: Equatable {
     /// Primitives
     case string(String)
-    case character(in: CharacterSet)
+    case charset(Charset)
 
     /// Combinators
     case any([Consumer])
@@ -82,6 +82,21 @@ public extension Consumer {
         }
     }
 
+    /// Opaque type used for efficient character matching
+    public struct Charset: Equatable {
+        fileprivate let characterSet: CharacterSet
+
+        /// Does set contain character
+        public func contains(_ char: UnicodeScalar) -> Bool {
+            return _contains(char)
+        }
+
+        /// Returns the union of two sets
+        public func union(_ other: Consumer.Charset) -> Consumer.Charset {
+            return _union(other)
+        }
+    }
+
     /// Closure for transforming a Match to an application-specific data type
     typealias Transform = (_ name: Label, _ values: [Any]) throws -> Any?
 
@@ -104,8 +119,9 @@ public extension Consumer {
 extension Consumer: ExpressibleByStringLiteral, ExpressibleByArrayLiteral {
     /// Create .string() consumer from a string literal
     public init(stringLiteral: String) {
-        if stringLiteral.unicodeScalars.count == 1 {
-            self = .character(in: CharacterSet(charactersIn: stringLiteral))
+        let scalars = stringLiteral.unicodeScalars
+        if scalars.count == 1, let char = scalars.first {
+            self = .character(char)
         } else {
             self = .string(stringLiteral)
         }
@@ -125,11 +141,41 @@ extension Consumer: ExpressibleByStringLiteral, ExpressibleByArrayLiteral {
             return .any(lhs + [rhs])
         case let (lhs, .any(rhs)):
             return .any([lhs] + rhs)
-        case let (.character(lhs), .character(rhs)):
-            return .character(in: lhs.union(rhs))
+        case let (.charset(lhs), .charset(rhs)):
+            return .charset(Charset(characterSet: lhs.characterSet.union(rhs.characterSet)))
         case let (lhs, rhs):
             return .any([lhs, rhs])
         }
+    }
+}
+
+/// MARK: Character sets
+
+public extension Consumer {
+    /// Match a character
+    static func character(_ c: UnicodeScalar) -> Consumer {
+        return .character(in: c ... c)
+    }
+
+    /// Match character in range
+    static func character(in range: ClosedRange<UnicodeScalar>) -> Consumer {
+        return .character(in: CharacterSet(charactersIn: range))
+    }
+
+    /// Match character in string
+    static func character(in string: String) -> Consumer {
+        return .character(in: CharacterSet(charactersIn: string))
+    }
+
+    /// Match character in set
+    static func character(in set: CharacterSet) -> Consumer {
+        return .charset(Charset(characterSet: set))
+    }
+
+    /// Match any character except the one(s) specified
+    static func anyCharacter(except characters: UnicodeScalar...) -> Consumer {
+        let string = characters.map(String.init).joined()
+        return .character(in: CharacterSet(charactersIn: string).inverted)
     }
 }
 
@@ -141,19 +187,15 @@ public extension Consumer {
         return .sequence([consumer, .zeroOrMore(consumer)])
     }
 
-    @available(*, deprecated, message: "Use `.character()` instead")
-    static func codePoint(_ range: CountableClosedRange<UInt32>) -> Consumer {
-        guard let from = UnicodeScalar(range.lowerBound),
-            let to = UnicodeScalar(range.upperBound) else {
-            preconditionFailure("Invalid codePoint range")
-        }
-        return .character(in: CharacterSet(charactersIn: from ... to))
+    /// Matches one or more of the specified consumer, interleaved with a separator
+    static func interleaved(_ consumer: Consumer, _ separator: Consumer) -> Consumer {
+        return .sequence([.zeroOrMore(.sequence([consumer, separator])), consumer])
     }
 
     /// Matches any character in the specified string
     /// Note: if the string contains composed characters like "\r\n" then they
     /// will be treated as a single character, not as individual unicode scalars
-    @available(*, deprecated, message: "Use `.character()` instead")
+    @available(*, deprecated, message: "Use `.character(in:)` instead")
     static func charInString(_ string: String) -> Consumer {
         let scalars = string.unicodeScalars
         if scalars.count == string.count {
@@ -163,14 +205,18 @@ public extension Consumer {
     }
 
     /// Creates a .codePoint() consumer using UnicodeScalars instead of code points
-    @available(*, deprecated, message: "Use `.character()` instead")
+    @available(*, deprecated, message: "Use `.character(in:)` instead")
     static func charInRange(_ from: UnicodeScalar, _ to: UnicodeScalar) -> Consumer {
         return .character(in: CharacterSet(charactersIn: from ... to))
     }
 
-    /// Matches one or more of the specified consumer, interleaved with a separator
-    static func interleaved(_ consumer: Consumer, _ separator: Consumer) -> Consumer {
-        return .sequence([.zeroOrMore(.sequence([consumer, separator])), consumer])
+    @available(*, deprecated, message: "Use `.character(in:)` instead")
+    static func codePoint(_ range: CountableClosedRange<UInt32>) -> Consumer {
+        guard let from = UnicodeScalar(range.lowerBound),
+            let to = UnicodeScalar(range.upperBound) else {
+            preconditionFailure("Invalid codePoint range")
+        }
+        return .character(in: CharacterSet(charactersIn: from ... to))
     }
 }
 
@@ -186,9 +232,9 @@ extension Consumer: CustomStringConvertible {
             return "\(name)"
         case let .string(string):
             return escapeString(string)
-        case let .character(charset):
+        case let .charset(charset):
             var results = [String]()
-            for plane: UInt8 in 0 ... 16 where charset.hasMember(inPlane: plane) {
+            for plane: UInt8 in 0 ... 16 where charset.characterSet.hasMember(inPlane: plane) {
                 var first: UInt32?, last: UInt32?
                 func addRange() {
                     if let first = first, let last = last {
@@ -255,8 +301,8 @@ extension Consumer: CustomStringConvertible {
         switch (lhs, rhs) {
         case let (.string(lhs), .string(rhs)):
             return lhs == rhs
-        case let (.character(lhs), .character(rhs)):
-            return lhs == rhs
+        case let (.charset(lhs), .charset(rhs)):
+            return lhs.characterSet == rhs.characterSet
         case let (.any(lhs), .any(rhs)),
              let (.sequence(lhs), .sequence(rhs)):
             return lhs == rhs
@@ -272,7 +318,7 @@ extension Consumer: CustomStringConvertible {
         case let (.reference(lhs), .reference(rhs)):
             return lhs == rhs
         case (.string, _),
-             (.character, _),
+             (.charset, _),
              (.any, _),
              (.sequence, _),
              (.optional, _),
@@ -296,7 +342,7 @@ private extension Consumer {
             return false
         case let .label(_, consumer):
             return consumer._isOptional
-        case .string, .character:
+        case .string, .charset:
             return false
         case let .any(consumers):
             return consumers.contains { $0._isOptional }
@@ -340,7 +386,7 @@ private extension Consumer {
             return true
         }
 
-        func _skipCharacter(_ charset: CharacterSet) -> Bool {
+        func _skipCharacter(_ charset: Charset) -> Bool {
             if index < input.endIndex, charset.contains(input[index]) {
                 offset += 1
                 index = input.index(after: index)
@@ -361,7 +407,7 @@ private extension Consumer {
                 return _skip(consumer)
             case let .string(string):
                 return _skipString(string)
-            case let .character(charset):
+            case let .charset(charset):
                 return _skipCharacter(charset)
             case let .any(consumers):
                 return consumers.contains(where: _skip)
@@ -382,7 +428,7 @@ private extension Consumer {
                 return _skip(consumer) || true
             case let .zeroOrMore(consumer):
                 switch consumer {
-                case let .character(charset):
+                case let .charset(charset):
                     while _skipCharacter(charset) {}
                 case let .string(string) where !string.isEmpty:
                     while _skipString(string) {}
@@ -412,7 +458,7 @@ private extension Consumer {
                 return _matchString(consumer)
             case let .string(string):
                 return _skipString(string) ? string : nil
-            case let .character(charset):
+            case let .charset(charset):
                 let startIndex = index
                 return _skipCharacter(charset) ? String(input[startIndex]) : nil
             case let .any(consumers):
@@ -444,7 +490,7 @@ private extension Consumer {
             case let .optional(consumer):
                 return _matchString(consumer) ?? ""
             case let .zeroOrMore(consumer):
-                if case let .character(charset) = consumer {
+                if case let .charset(charset) = consumer {
                     let startIndex = index
                     while _skipCharacter(charset) {}
                     if index > startIndex {
@@ -488,7 +534,7 @@ private extension Consumer {
             case let .string(string):
                 let startOffset = offset
                 return _skipString(string) ? .token(string, startOffset ..< offset) : nil
-            case let .character(charset):
+            case let .charset(charset):
                 let startIndex = index
                 let string = String(input[startIndex])
                 return _skipCharacter(charset) ? .token(string, offset - 1 ..< offset) : nil
@@ -529,7 +575,7 @@ private extension Consumer {
             case let .optional(consumer):
                 return _match(consumer) ?? .node(nil, [])
             case let .zeroOrMore(consumer):
-                if case let .character(charset) = consumer {
+                if case let .charset(charset) = consumer {
                     let startIndex = index
                     var startOffset = offset
                     while _skipCharacter(charset) {}
@@ -576,6 +622,25 @@ private extension Consumer {
         } else {
             throw Error(.expected(expected ?? self), remaining: input[bestIndex...])
         }
+    }
+}
+
+// MARK: Charset implementation
+
+extension Consumer.Charset {
+    /// Equatable implementation
+    public static func == (lhs: Consumer<Label>.Charset, rhs: Consumer<Label>.Charset) -> Bool {
+        return lhs.characterSet == rhs.characterSet
+    }
+}
+
+private extension Consumer.Charset {
+    func _contains(_ char: UnicodeScalar) -> Bool {
+        return characterSet.contains(char)
+    }
+
+    func _union(_ other: Consumer.Charset) -> Consumer.Charset {
+        return Consumer.Charset(characterSet: characterSet.union(other.characterSet))
     }
 }
 
