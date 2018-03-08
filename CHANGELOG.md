@@ -1,3 +1,9 @@
+## [0.2.2](https://github.com/nicklockwood/Consumer/releases/tag/0.2.2) (2018-03-08)
+
+- Added support for matching Foundation `CharacterSet`s, along with several new character-based convenience methods (see README for details)
+- Deprecated the old character-matching methods in favor of `character(in: ...)` variants
+- Added ~2x performance improvement when using the new character consumers
+
 ## [0.2.1](https://github.com/nicklockwood/Consumer/releases/tag/0.2.1) (2018-03-06)
 
 - Added fast-paths when using `flatten`, `replace` and `discard` transforms

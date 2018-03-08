@@ -1,6 +1,6 @@
 [![Travis](https://img.shields.io/travis/nicklockwood/Consumer.svg)](https://travis-ci.org/nicklockwood/Consumer)
 [![Coveralls](https://coveralls.io/repos/github/nicklockwood/Consumer/badge.svg)](https://coveralls.io/github/nicklockwood/Consumer)
-[![Platform](https://img.shields.io/cocoapods/p/Consumer.svg?style=flat)](http://cocoadocs.org/docsets/Consumer)
+[![Platforms](https://img.shields.io/badge/platforms-iOS%20|%20macOS%20|%20tvOS%20|%20watchOS%20|%20Linux-lightgray.svg)]()
 [![Swift 3.2](https://img.shields.io/badge/swift-3.2-orange.svg?style=flat)](https://developer.apple.com/swift)
 [![Swift 4.0](https://img.shields.io/badge/swift-4.0-red.svg?style=flat)](https://developer.apple.com/swift)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://opensource.org/licenses/MIT)
@@ -13,6 +13,7 @@
 - [Usage](#usage)
     - [Installation](#installation)
     - [Parsing](#parsing)
+    - [Character Sets)(#character-sets)
     - [Transforming](#transforming)
     - [Common Transforms](#common-transforms)
     - [Typed Labels](#typed-labels)
@@ -37,8 +38,6 @@ The primary interface is the `Consumer` type, which is used to programmatically 
 
 Using that grammar, you can then parse String input into an AST (Abstract Syntax Tree), which can then be transformed into application-specific data
 
-**Note: Consumer is at a very early stage of development. Performance is not great, and breaking changes are likely. It is not recommended that you use it in production at this time.**
-
 ## Why?
 
 There are many situations where it is useful to be able to parse structured data. Most popular file formats have some kind of parser, typically either written by hand or by using code generation. 
@@ -58,7 +57,7 @@ You build up a consumer by starting with simple rules that match individual word
 
 ## Installation
 
-The `Consumer` type and its dependencies are encapsulated in a single file, and everything public is prefixed or name-spaced, so you can simply drag `Consumer.swift` into your project to use it.
+The `Consumer` type and its dependencies are encapsulated in a single file, and everything public is prefixed or name-spaced, so you can just drag `Consumer.swift` into your project to use it.
 
 If you prefer, there's a framework for Mac and iOS that you can import which includes the `Consumer` type. You can install this manually, or by using CocoaPods, Carthage, or Swift Package Manager.
 
@@ -72,6 +71,12 @@ To install using Carthage, add this to your Cartfile:
 
 ```
 github "nicklockwood/Consumer" ~> 0.2
+```
+
+To install using Swift Package Manage, add this to the `dependencies:` section in your Package.swift file:
+
+```
+.package(url: "https://github.com/nicklockwood/Consumer.git", .upToNextMinor(from: "0.2.0")),
 ```
 
 ## Parsing
@@ -159,6 +164,37 @@ let sign = .any(["+", "-"])
 
 let signedInteger: Consumer<String> = .sequence([
     .optional(sign), integer,
+])
+```
+
+## Character Sets
+
+The basic consumer type is `charset(Charset)` which matches a single character in a specified set. The `Charset` type is opaque, and cannot be constructed directly - instead, you should use the `character(...)` family of convenience constructors, which accept either a range of `UnicodeScalar`s or a Foundation `CharacterSet`. For example, to define a consumer that matches the digits 0 - 9, you can use a range:
+
+```swift
+let range: Consumer<String> = .character(in: "0" ... "9")
+```
+
+Or you can just use the predefined `decimalDigits` `CharacterSet` provided by Foundation, as we did in the examples above:
+
+```swift
+let range: Consumer<String> = .character(in: .decimalDigits)
+```
+
+These two functions are actually equivalent to the following, but thanks to the magic of type inference and function overloading, you can use the more concise syntax above:
+
+```swift
+let range: Consumer<String> = Consumer<String>.character(in: CharacterSet(charactersIn: "0" ... "9"))
+let range: Consumer<String> = Consumer<String>.character(in: CharacterSet.decimalDigits)
+```
+
+You can also create an inverse character set by using the `anyCharacter(except: ...)` constructor. This is useful if you want to match any character *except* a particular set. In the following example, we use this feature to parse a quoted string literal by matching a double quote followed by a sequence of any characters *except* a double quote, followed by a final closing double quote:
+
+```swift
+let string: Consumer<String> = .sequence([
+    .character("\""),
+    .zeroOrMore(.anyCharacter(except: "\"")),
+    .character("\""),
 ])
 ```
 
@@ -477,15 +513,14 @@ This consumer matches exactly the same input as the previous one, but after succ
 
 ## Character Sequences
 
-The following consumer example matches a quoted string literal containing escaped quotes. It matches a zero or More instances of either an escaped quote `\"` or any other character besides `"`.
+The following consumer example matches a quoted string literal containing escaped quotes. It matches a zero or more instances of either an escaped quote `\"` or any other character besides `"` or `\`.
 
 ```swift
-let stringChars = CharacterSet(charactersIn: "\0" ... "\u{10FFFF}").subtracting(CharacterSet(charactersIn: "\"")) // Any character except "
 let string: Consumer<String> = .flatten(.sequence([
     .discard("\""),
     .zeroOrMore(.any([
         .replace("\\\"", "\""), // Escaped "
-        .character(in: stringChars),
+        .character(in: .anyCharacter(except: "\"", "\\")),
     ])),
     .discard("\""),
 ]))
@@ -496,12 +531,11 @@ The above implementation works as expected, but it is not as efficient as it cou
 Consumer has optimized code paths for matching `.zeroOrMore(.character(...))` or `.oneOrMore(.character(...))` rules, and we can rewrite the string consumer to take advantage of this optimization as follows:
 
 ```swift
-let stringChars = CharacterSet(charactersIn: "\0" ... "\u{10FFFF}").subtracting(CharacterSet(charactersIn: "\"\\")) // Any character except " and \
 let string: Consumer<String> = .flatten(.sequence([
     .discard("\""),
     .zeroOrMore(.any([
         .replace("\\\"", "\""), // Escaped "
-        .oneOrMore(.character(in: stringChars)),
+        .oneOrMore(.anyCharacter(except: "\"", "\\")),
     ])),
     .discard("\""),
 ]))
