@@ -13,7 +13,7 @@
 - [Usage](#usage)
     - [Installation](#installation)
     - [Parsing](#parsing)
-    - [Character Sets)(#character-sets)
+    - [Character Sets](#character-sets)
     - [Transforming](#transforming)
     - [Common Transforms](#common-transforms)
     - [Typed Labels](#typed-labels)
@@ -149,7 +149,7 @@ let oneToNine: Consumer<String> = .character(in: "1" ... "9")
 let zeroToNine: Consumer<String> = .character(in: .decimalDigits)
 
 let nonzeroInteger: Consumer<String> = .sequence([
-    .oneToNine, .zeroOrMore(zeroToNine),
+    oneToNine, .zeroOrMore(zeroToNine),
 ])
 
 let integer: Consumer<String> = .any([
@@ -243,7 +243,7 @@ The `Label` type is used in conjunction with the `label` consumer. This allows y
 
 The first purpose is to allow [forward references](#forward-references), which are explained below.
 
-The second purpose is for use when transforming, to identify the type of node to be transformed. Labels assigned to consumer rules are preserved in the `Match` node after parsing, making it possible to identify which rule was matched to create a particular type of value. Matched values that are not labelled cannot be individually transformed, they will instead be be passed as the values for the first labelled parent node.
+The second purpose is for use when transforming, to identify the type of node to be transformed. Labels assigned to consumer rules are preserved in the `Match` node after parsing, making it possible to identify which rule was matched to create a particular type of value. Matched values that are not labelled cannot be individually transformed, they will instead be passed as the values for the first labelled parent node.
 
 So, to transform the integer result, we must first give it a label, by using the `label` consumer type:
 
