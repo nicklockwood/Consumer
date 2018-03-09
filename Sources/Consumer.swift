@@ -83,18 +83,8 @@ public extension Consumer {
     }
 
     /// Opaque type used for efficient character matching
-    public struct Charset: Equatable {
+    public struct Charset {
         fileprivate let characterSet: CharacterSet
-
-        /// Does set contain character
-        public func contains(_ char: UnicodeScalar) -> Bool {
-            return _contains(char)
-        }
-
-        /// Returns the union of two sets
-        public func union(_ other: Consumer.Charset) -> Consumer.Charset {
-            return _union(other)
-        }
     }
 
     /// Closure for transforming a Match to an application-specific data type
@@ -142,7 +132,7 @@ extension Consumer: ExpressibleByStringLiteral, ExpressibleByArrayLiteral {
         case let (lhs, .any(rhs)):
             return .any([lhs] + rhs)
         case let (.charset(lhs), .charset(rhs)):
-            return .charset(Charset(characterSet: lhs.characterSet.union(rhs.characterSet)))
+            return .charset(lhs._union(rhs))
         case let (lhs, rhs):
             return .any([lhs, rhs])
         }
@@ -234,31 +224,16 @@ extension Consumer: CustomStringConvertible {
             return escapeString(string)
         case let .charset(charset):
             var results = [String]()
-            for plane: UInt8 in 0 ... 16 where charset.characterSet.hasMember(inPlane: plane) {
-                var first: UInt32?, last: UInt32?
-                func addRange() {
-                    if let first = first, let last = last {
-                        if first == last {
-                            results.append(escapeCodePoint(first))
-                        } else if first == last - 1 {
-                            results.append("\(escapeCodePoint(first)) or \(escapeCodePoint(last))")
-                        } else {
-                            results.append("\(escapeCodePoint(first)) – \(escapeCodePoint(last))")
-                        }
-                    }
+            for range in charset.ranges {
+                let first = range.lowerBound, last = range.upperBound
+                if first == last {
+                    results.append(escapeCodePoint(first))
+                } else if first == last - 1 {
+                    results.append(escapeCodePoint(first))
+                    results.append(escapeCodePoint(last))
+                } else {
+                    results.append("\(escapeCodePoint(first)) – \(escapeCodePoint(last))")
                 }
-                for codePoint in UInt32(plane) << 16 ..< UInt32(plane + 1) << 16 {
-                    if let char = UnicodeScalar(codePoint), charset.contains(char) {
-                        if last != nil, codePoint == last! + 1 {
-                            last = codePoint
-                        } else {
-                            addRange()
-                            first = codePoint
-                            last = codePoint
-                        }
-                    }
-                }
-                addRange()
             }
             switch results.count {
             case 1:
@@ -372,10 +347,6 @@ private extension Consumer {
             var newIndex = index
             for c in scalars {
                 guard newIndex < input.endIndex, input[newIndex] == c else {
-                    if newIndex > bestIndex {
-                        bestIndex = index
-                        expected = .string(string)
-                    }
                     return false
                 }
                 newOffset += 1
@@ -387,7 +358,7 @@ private extension Consumer {
         }
 
         func _skipCharacter(_ charset: Charset) -> Bool {
-            if index < input.endIndex, charset.contains(input[index]) {
+            if index < input.endIndex, charset._contains(input[index]) {
                 offset += 1
                 index = input.index(after: index)
                 return true
@@ -627,13 +598,6 @@ private extension Consumer {
 
 // MARK: Charset implementation
 
-extension Consumer.Charset {
-    /// Equatable implementation
-    public static func == (lhs: Consumer<Label>.Charset, rhs: Consumer<Label>.Charset) -> Bool {
-        return lhs.characterSet == rhs.characterSet
-    }
-}
-
 private extension Consumer.Charset {
     func _contains(_ char: UnicodeScalar) -> Bool {
         return characterSet.contains(char)
@@ -641,6 +605,31 @@ private extension Consumer.Charset {
 
     func _union(_ other: Consumer.Charset) -> Consumer.Charset {
         return Consumer.Charset(characterSet: characterSet.union(other.characterSet))
+    }
+
+    // Note: this calculation is really expensive
+    var ranges: [CountableClosedRange<UInt32>] {
+        var ranges = [CountableClosedRange<UInt32>]()
+        var first: UInt32?, last: UInt32?
+        for plane: UInt8 in 0 ... 16 where characterSet.hasMember(inPlane: plane) {
+            for codePoint in UInt32(plane) << 16 ..< UInt32(plane + 1) << 16 {
+                if let char = UnicodeScalar(codePoint), characterSet.contains(char) {
+                    if let _last = last, codePoint == _last + 1 {
+                        last = codePoint
+                    } else {
+                        if let first = first, let last = last {
+                            ranges.append(first ... last)
+                        }
+                        first = codePoint
+                        last = codePoint
+                    }
+                }
+            }
+        }
+        if let first = first, let last = last {
+            ranges.append(first ... last)
+        }
+        return ranges
     }
 }
 
