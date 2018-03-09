@@ -1,3 +1,7 @@
+## [0.2.3](https://github.com/nicklockwood/Consumer/releases/tag/0.2.3) (2018-03-09)
+
+- Improved performance and error messaging when using Foundation's `CharacterSet` for character matching
+
 ## [0.2.2](https://github.com/nicklockwood/Consumer/releases/tag/0.2.2) (2018-03-08)
 
 - Added support for matching Foundation `CharacterSet`s, along with several new character-based convenience methods (see README for details)

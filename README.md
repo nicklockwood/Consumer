@@ -103,19 +103,19 @@ In this simple example above, the match will always succeed. If tested against a
 The example above is not very useful - there are much simpler ways to detect string equality! Let's try a slightly more advanced example. The following consumer matches an unsigned integer:
 
 ```swift
-let integer: Consumer<String> = .oneOrMore(.character(in: .decimalDigits))
+let integer: Consumer<String> = .oneOrMore(.character(in: "0" ... "9"))
 ```
 
-The top-level consumer in this case is of type `oneOrMore`, meaning that it matches one or more instances of the nested `.character(in: .decimalDigits)` consumer. In other words, it will match any sequence of decimal digits.
+The top-level consumer in this case is of type `oneOrMore`, meaning that it matches one or more instances of the nested `.character(in: "0" ... "9")` consumer. In other words, it will match any sequence of characters in the range "0" - "9".
 
-There's a slight problem with this implementation though: An arbitrary sequence of digits might include leading zeros, e.g. `01234`, which could be mistaken for an octal number in some programming languages, or even just be treated as a syntax error. How can we modify the `integer` consumer to reject leading zeros?
+There's a slight problem with this implementation though: An arbitrary sequence of digits might include leading zeros, e.g. "01234", which could be mistaken for an octal number in some programming languages, or even just be treated as a syntax error. How can we modify the `integer` consumer to reject leading zeros?
 
 We need to treat the first character differently from the subsequent ones, which means we need two different parsing rules to be applied in *sequence*. For that, we use a `sequence` consumer:
 
 ```swift
 let integer: Consumer<String> = .sequence([
     .character(in: "1" ... "9"),
-    .zeroOrMore(.character(in: .decimalDigits)),
+    .zeroOrMore(.character(in: "0" ... "9")),
 ])
 ```
 
@@ -136,7 +136,7 @@ let integer: Consumer<String> = .any([
     .character("0"),
     .sequence([
         .character(in: "1" ... "9"),
-        .zeroOrMore(.character(in: .decimalDigits)),
+        .zeroOrMore(.character(in: "0" ... "9")),
     ]),
 ])
 ```
@@ -146,7 +146,7 @@ That will do what we want, but it's quite a bit more complex. To make it more re
 ```swift
 let zero: Consumer<String> = .character("0")
 let oneToNine: Consumer<String> = .character(in: "1" ... "9")
-let zeroToNine: Consumer<String> = .character(in: .decimalDigits)
+let zeroToNine: Consumer<String> = .character(in: "0" ... "9")
 
 let nonzeroInteger: Consumer<String> = .sequence([
     oneToNine, .zeroOrMore(zeroToNine),
@@ -169,13 +169,15 @@ let signedInteger: Consumer<String> = .sequence([
 
 ## Character Sets
 
-The basic consumer type is `charset(Charset)` which matches a single character in a specified set. The `Charset` type is opaque, and cannot be constructed directly - instead, you should use the `character(...)` family of convenience constructors, which accept either a range of `UnicodeScalar`s or a Foundation `CharacterSet`. For example, to define a consumer that matches the digits 0 - 9, you can use a range:
+The basic consumer type is `charset(Charset)` which matches a single character in a specified set. The `Charset` type is opaque, and cannot be constructed directly - instead, you should use the `character(...)` family of convenience constructors, which accept either a range of `UnicodeScalar`s or a Foundation `CharacterSet`.
+
+For example, to define a consumer that matches the digits 0 - 9, you can use a range:
 
 ```swift
 let range: Consumer<String> = .character(in: "0" ... "9")
 ```
 
-Or you can just use the predefined `decimalDigits` `CharacterSet` provided by Foundation, as we did in the examples above:
+You could also use the predefined `decimalDigits` `CharacterSet` provided by Foundation, though you should note that this includes numerals from other languages such as Arabic, and so may not be what you want when parsing a data format like JSON, or a programming language which only expects ASCII digits.
 
 ```swift
 let range: Consumer<String> = .character(in: .decimalDigits)
@@ -188,7 +190,7 @@ let range: Consumer<String> = Consumer<String>.character(in: CharacterSet(charac
 let range: Consumer<String> = Consumer<String>.character(in: CharacterSet.decimalDigits)
 ```
 
-You can also create an inverse character set by using the `anyCharacter(except: ...)` constructor. This is useful if you want to match any character *except* a particular set. In the following example, we use this feature to parse a quoted string literal by matching a double quote followed by a sequence of any characters *except* a double quote, followed by a final closing double quote:
+You can create an inverse character set by using the `anyCharacter(except: ...)` constructor. This is useful if you want to match any character *except* a particular set. In the following example, we use this feature to parse a quoted string literal by matching a double quote followed by a sequence of any characters *except* a double quote, followed by a final closing double quote:
 
 ```swift
 let string: Consumer<String> = .sequence([
@@ -197,6 +199,15 @@ let string: Consumer<String> = .sequence([
     .character("\""),
 ])
 ```
+
+The `.anyCharacter(except: "\"")` constructor is functionally equivalent to:
+
+```swift
+ .character(in: CharacterSet(charactersIn: "\"").inverted)
+ ```
+ 
+But the former produces a more helpful error message if matching fails since it retains the concept of being "every character except X", whereas the latter will be displayed as a range containing all unicode characters except the ones specified. 
+
 
 ## Transforming
 
@@ -252,7 +263,7 @@ let integer: Consumer<String> = .label("integer", .any([
     .character("0"),
     .sequence([
         .character(in: "1" ... "9"),
-        .zeroOrMore(.character(in: .decimalDigits)),
+        .zeroOrMore(.character(in: "0" ... "9")),
     ]),
 ]))
 ```
@@ -271,7 +282,7 @@ let result = try integer.match("1234").transform { label, values in
 print(result ?? "")
 ```
 
-We know that the `integer` consumer will always return an array of string tokens, so we can safely use `as!` in this case to cast `values` to `[String]`. This is not especially elegant, but its the nature of dealing with dynamic data in Swift. Safety purists may prefer to use `as?` and throw an `Error` or return `nil` if the value is not a `[String]`, but that situation could only arise in the event of a programming error - no input data matched by the `integer` consumer we've defined above will ever return anything else.
+We know that the `integer` consumer will always return an array of string tokens, so we can safely use `as!` in this case to cast `values` to `[String]`. This is not especially elegant, but its the nature of dealing with dynamic data in Swift. Safety purists might prefer to use `as?` and throw an `Error` if the value is not a `[String]`, but that situation could only arise in the event of a programming error - no input data matched by the `integer` consumer we've defined above will ever return anything else.
 
 With the addition of this function, the array of character tokens is transformed into a single string value. The printed result is now simply "1234". That's much better, but it's still a `String`, and we may well want it to be an actual `Int` if we're going to use the value. Since the `transform` function returns `Any?`, we can return any type we want, so let's modify it to return an `Int` instead:
 
@@ -313,7 +324,7 @@ let integer: Consumer<String> = .label("integer", .flatten(.any([
     .character("0"),
     .sequence([
         .character(in: "1" ... "9"),
-        .zeroOrMore(.character(in: .decimalDigits)),
+        .zeroOrMore(.character(in: "0" ... "9")),
     ]),
 ])))
 
@@ -356,7 +367,7 @@ let integer: Consumer<MyLabel> = .label(.integer, .flatten(.any([
     .character("0"),
     .sequence([
         .character(in: "1" ... "9"),
-        .zeroOrMore(.character(in: .decimalDigits)),
+        .zeroOrMore(.character(in: "0" ... "9")),
     ]),
 ])))
 

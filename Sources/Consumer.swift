@@ -2,7 +2,7 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.2.2
+//  Version 0.2.3
 //
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
@@ -425,16 +425,16 @@ private extension Consumer {
             }
         }
 
-        func _matchString(_ consumer: Consumer) -> String? {
+        func _flatten(_ consumer: Consumer) -> String? {
             switch consumer {
             case let .label(name, _consumer):
                 consumersByName[name] = consumer
-                return _matchString(_consumer)
+                return _flatten(_consumer)
             case let .reference(name):
                 guard let consumer = consumersByName[name] else {
                     preconditionFailure("Undefined reference for consumer '\(name)'")
                 }
-                return _matchString(consumer)
+                return _flatten(consumer)
             case let .string(string):
                 return _skipString(string) ? string : nil
             case let .charset(charset):
@@ -443,7 +443,7 @@ private extension Consumer {
             case let .any(consumers):
                 let startIndex = index
                 for consumer in consumers {
-                    if let match = _matchString(consumer), index > startIndex {
+                    if let match = _flatten(consumer), index > startIndex {
                         return match
                     }
                 }
@@ -453,7 +453,7 @@ private extension Consumer {
                 let startOffset = offset
                 var result = ""
                 for consumer in consumers {
-                    if let match = _matchString(consumer) {
+                    if let match = _flatten(consumer) {
                         result += match
                     } else {
                         if index > bestIndex {
@@ -467,7 +467,7 @@ private extension Consumer {
                 }
                 return result
             case let .optional(consumer):
-                return _matchString(consumer) ?? ""
+                return _flatten(consumer) ?? ""
             case let .zeroOrMore(consumer):
                 if case let .charset(charset) = consumer {
                     let startIndex = index
@@ -479,13 +479,13 @@ private extension Consumer {
                 }
                 var result = ""
                 var lastIndex = index
-                while let match = _matchString(consumer), index > lastIndex {
+                while let match = _flatten(consumer), index > lastIndex {
                     lastIndex = index
                     result += match
                 }
                 return result
             case let .flatten(consumer):
-                return _matchString(consumer)
+                return _flatten(consumer)
             case let .discard(consumer):
                 return _skip(consumer) ? "" : nil
             case let .replace(consumer, replacement):
@@ -585,7 +585,7 @@ private extension Consumer {
                 return .node(nil, matches)
             case let .flatten(consumer):
                 let startOffset = offset
-                return _matchString(consumer).map { .token($0, startOffset ..< offset) }
+                return _flatten(consumer).map { .token($0, startOffset ..< offset) }
             case let .discard(consumer):
                 return _skip(consumer) ? .node(nil, []) : nil
             case let .replace(consumer, replacement):
@@ -724,6 +724,7 @@ private extension Consumer.Match {
         }
     }
 
+    @available(*, deprecated, message: "to be removed")
     func _flatten() -> Consumer.Match {
         func _flatten(_ match: Consumer.Match) -> String {
             switch match {

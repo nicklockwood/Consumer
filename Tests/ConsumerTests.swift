@@ -97,6 +97,11 @@ class ConsumerTests: XCTestCase {
         XCTAssertThrowsError(try parser.match("barfoo"))
     }
 
+    func testZeroOrMore2() {
+        let parser: Consumer<String> = .zeroOrMore(.character(in: "a" ... "f"))
+        XCTAssertEqual(try parser.match("abc"), .node(nil, [.token("a", 0 ..< 1), .token("b", 1 ..< 2), .token("c", 2 ..< 3)]))
+    }
+
     /// MARK: Standard transforms
 
     func testFlattenOptional() {
@@ -105,14 +110,54 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(try parser.match(""), .token("", 0 ..< 0))
     }
 
-    func testFlattenSequence() {
-        let parser: Consumer<String> = .flatten([.string("foo"), .string("bar")])
+    func testFlattenAnyString() {
+        let parser: Consumer<String> = .flatten("foo" | "bar")
+        XCTAssertEqual(try parser.match("bar"), .token("bar", 0 ..< 3))
+    }
+
+    func testFlattenAnySequence() {
+        let parser: Consumer<String> = .flatten(["a", "b"] | ["b", "a"])
+        XCTAssertEqual(try parser.match("ab"), .token("ab", 0 ..< 2))
+    }
+
+    func testFlattenStringSequence() {
+        let parser: Consumer<String> = .flatten(["foo", "bar"])
         XCTAssertEqual(try parser.match("foobar"), .token("foobar", 0 ..< 6))
     }
 
-    func testDiscardSequence() {
-        let parser: Consumer<String> = .discard([.string("foo"), .string("bar")])
+    func testFlattenZeroOrMoreStrings() {
+        let parser: Consumer<String> = .flatten(.zeroOrMore("foo"))
+        XCTAssertEqual(try parser.match("foofoofoo"), .token("foofoofoo", 0 ..< 9))
+    }
+
+    func testFlattenZeroOrMoreCharacters() {
+        let parser: Consumer<String> = .flatten(.zeroOrMore(.character(in: "a" ... "f")))
+        XCTAssertEqual(try parser.match("abcefecba"), .token("abcefecba", 0 ..< 9))
+    }
+
+    func testDiscardAnyString() {
+        let parser: Consumer<String> = .discard("foo" | "bar")
+        XCTAssertEqual(try parser.match("bar"), .node(nil, []))
+    }
+
+    func testDiscardAnySequence() {
+        let parser: Consumer<String> = .discard(["a", "b"] | ["b", "a"])
+        XCTAssertEqual(try parser.match("ab"), .node(nil, []))
+    }
+
+    func testDiscardStringSequence() {
+        let parser: Consumer<String> = .discard(["foo", "bar"])
         XCTAssertEqual(try parser.match("foobar"), .node(nil, []))
+    }
+
+    func testDiscardZeroOrMoreStrings() {
+        let parser: Consumer<String> = .discard(.zeroOrMore("foo"))
+        XCTAssertEqual(try parser.match("foofoofoo"), .node(nil, []))
+    }
+
+    func testDiscardZeroOrMoreCharacters() {
+        let parser: Consumer<String> = .discard(.zeroOrMore(.character(in: "a" ... "f")))
+        XCTAssertEqual(try parser.match("abcefecba"), .node(nil, []))
     }
 
     func testReplaceSequence() {
@@ -150,6 +195,26 @@ class ConsumerTests: XCTestCase {
     func testOrOperator4() {
         let fooOrBarOrBazOrQuux: Consumer<String> = .any(["foo", "bar", "baz", "quux"])
         XCTAssertEqual(fooOrBarOrBazOrQuux, .any(["foo", "bar"]) | .any(["baz", "quux"]))
+    }
+
+    func testOrOperator5() {
+        let aOrB: Consumer<String> = .character(in: "a" ... "b")
+        XCTAssertEqual(aOrB, .character("a") | .character("b"))
+    }
+
+    func testOrOperator6() {
+        let aToE: Consumer<String> = .character(in: "abcde")
+        XCTAssertEqual(aToE, .character(in: "a" ... "c") | .character(in: "b" ... "e"))
+    }
+
+    func testOrOperator7() {
+        let aOrC: Consumer<String> = .anyCharacter(except: "a", "c")
+        XCTAssertEqual(aOrC, .anyCharacter(except: "a", "b", "c") | .character("b"))
+    }
+
+    func testOrOperator8() {
+        let aOrC: Consumer<String> = .anyCharacter(except: "a", "c")
+        XCTAssertEqual(aOrC, .character("b") | .anyCharacter(except: "a", "b", "c"))
     }
 
     /// MARK: Composite rules
@@ -268,13 +333,16 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(Consumer<String>.character(in: "👍" ... "👍").description, "U+1F44D")
         XCTAssertEqual(Consumer<String>.character(in: "12").description, "'1' or '2'")
         XCTAssertEqual(Consumer<String>.character(in: "1356").description, "'1', '3', '5' or '6'")
+        XCTAssertEqual(Consumer<String>.character(in: "").description, "nothing")
         XCTAssertEqual(Consumer<String>.anyCharacter(except: "\"").description, "any character except '\\\"'")
+        XCTAssertEqual(Consumer<String>.anyCharacter().description, "any character")
     }
 
     func testAnyDescription() {
         XCTAssertEqual(Consumer<String>.any(["foo", "bar"]).description, "\"foo\" or \"bar\"")
         XCTAssertEqual(Consumer<String>.any(["a", "b", "c"]).description, "'a', 'b' or 'c'")
         XCTAssertEqual(Consumer<String>.any([.optional("a"), "b"]).description, "'a' or 'b'")
+        XCTAssertEqual(Consumer<String>.any([.optional("foo"), "bar"]).description, "\"foo\" or \"bar\"")
         XCTAssertEqual(Consumer<String>.any(["foo"]).description, "\"foo\"")
         XCTAssertEqual(Consumer<String>.any([]).description, "nothing")
     }
