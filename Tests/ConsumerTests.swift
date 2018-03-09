@@ -268,7 +268,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(Consumer<String>.character(in: "👍" ... "👍").description, "U+1F44D")
         XCTAssertEqual(Consumer<String>.character(in: "12").description, "'1' or '2'")
         XCTAssertEqual(Consumer<String>.character(in: "1356").description, "'1', '3', '5' or '6'")
-        XCTAssertEqual(Consumer<String>.anyCharacter(except: "\"").description, "'\\0' – '!', '#' – U+D7FF or U+E000 – U+10FFFF")
+        XCTAssertEqual(Consumer<String>.anyCharacter(except: "\"").description, "any character except '\\\"'")
     }
 
     func testAnyDescription() {

@@ -6,14 +6,54 @@
 	<dict>
 		<key>PerformanceTests</key>
 		<dict>
+			<key>testDecimalDigitsCharacterSetDescription()</key>
+			<dict>
+				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
+				<dict>
+					<key>baselineAverage</key>
+					<real>0.010299</real>
+					<key>baselineIntegrationDisplayName</key>
+					<string>9 Mar 2018 at 11:51:29</string>
+				</dict>
+			</dict>
+			<key>testEmojiCharacterDescription()</key>
+			<dict>
+				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
+				<dict>
+					<key>baselineAverage</key>
+					<real>0.0047151</real>
+					<key>baselineIntegrationDisplayName</key>
+					<string>9 Mar 2018 at 11:51:29</string>
+				</dict>
+			</dict>
 			<key>testHandWrittenJSONConsumer()</key>
 			<dict>
 				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
 				<dict>
 					<key>baselineAverage</key>
-					<real>0.00064067</real>
+					<real>0.0012298</real>
 					<key>baselineIntegrationDisplayName</key>
-					<string>6 Mar 2018 at 18:27:01</string>
+					<string>9 Mar 2018 at 11:51:29</string>
+				</dict>
+			</dict>
+			<key>testHexCharacterDescription()</key>
+			<dict>
+				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
+				<dict>
+					<key>baselineAverage</key>
+					<real>0.0046173</real>
+					<key>baselineIntegrationDisplayName</key>
+					<string>9 Mar 2018 at 11:51:29</string>
+				</dict>
+			</dict>
+			<key>testInverseCharacterSetDescription()</key>
+			<dict>
+				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
+				<dict>
+					<key>baselineAverage</key>
+					<real>0.00431</real>
+					<key>baselineIntegrationDisplayName</key>
+					<string>9 Mar 2018 at 11:51:29</string>
 				</dict>
 			</dict>
 			<key>testJSONConsumer()</key>
@@ -21,9 +61,9 @@
 				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
 				<dict>
 					<key>baselineAverage</key>
-					<real>0.015666</real>
+					<real>0.0083835</real>
 					<key>baselineIntegrationDisplayName</key>
-					<string>6 Mar 2018 at 18:27:01</string>
+					<string>9 Mar 2018 at 11:51:29</string>
 				</dict>
 			</dict>
 			<key>testJSONSerialization()</key>
@@ -31,9 +71,19 @@
 				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
 				<dict>
 					<key>baselineAverage</key>
-					<real>0.00010545</real>
+					<real>8.1442e-05</real>
 					<key>baselineIntegrationDisplayName</key>
-					<string>6 Mar 2018 at 18:27:01</string>
+					<string>9 Mar 2018 at 11:51:29</string>
+				</dict>
+			</dict>
+			<key>testWhitespaceCharacterSetDescription()</key>
+			<dict>
+				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
+				<dict>
+					<key>baselineAverage</key>
+					<real>0.0047984</real>
+					<key>baselineIntegrationDisplayName</key>
+					<string>9 Mar 2018 at 11:51:29</string>
 				</dict>
 			</dict>
 		</dict>

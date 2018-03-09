@@ -83,8 +83,9 @@ public extension Consumer {
     }
 
     /// Opaque type used for efficient character matching
-    public struct Charset {
+    public struct Charset: Hashable {
         fileprivate let characterSet: CharacterSet
+        let inverted: Bool
     }
 
     /// Closure for transforming a Match to an application-specific data type
@@ -159,13 +160,18 @@ public extension Consumer {
 
     /// Match character in set
     static func character(in set: CharacterSet) -> Consumer {
-        return .charset(Charset(characterSet: set))
+        return .charset(Charset(characterSet: set, inverted: false))
     }
 
     /// Match any character except the one(s) specified
     static func anyCharacter(except characters: UnicodeScalar...) -> Consumer {
-        let string = characters.map(String.init).joined()
-        return .character(in: CharacterSet(charactersIn: string).inverted)
+        let set = CharacterSet(charactersIn: characters.map(String.init).joined())
+        return .anyCharacter(except: set)
+    }
+
+    /// Match any character except the specified set
+    static func anyCharacter(except set: CharacterSet) -> Consumer {
+        return .charset(Charset(characterSet: set, inverted: true))
     }
 }
 
@@ -235,13 +241,15 @@ extension Consumer: CustomStringConvertible {
                     results.append("\(escapeCodePoint(first)) – \(escapeCodePoint(last))")
                 }
             }
+            if results.isEmpty {
+                return charset.inverted ? "any character" : "nothing"
+            }
+            let prefix = charset.inverted ? "any character except " : ""
             switch results.count {
             case 1:
-                return results[0]
-            case 2...:
-                return "\(results.dropLast().map { $0 }.joined(separator: ", ")) or \(results.last!)"
+                return prefix + results[0]
             default:
-                return "nothing"
+                return "\(results.dropLast().map { $0 }.joined(separator: ", ")) or \(results.last!)"
             }
         case let .any(consumers):
             switch consumers.count {
@@ -277,7 +285,7 @@ extension Consumer: CustomStringConvertible {
         case let (.string(lhs), .string(rhs)):
             return lhs == rhs
         case let (.charset(lhs), .charset(rhs)):
-            return lhs.characterSet == rhs.characterSet
+            return lhs == rhs
         case let (.any(lhs), .any(rhs)),
              let (.sequence(lhs), .sequence(rhs)):
             return lhs == rhs
@@ -598,31 +606,36 @@ private extension Consumer {
 
 // MARK: Charset implementation
 
-private extension Consumer.Charset {
-    func _contains(_ char: UnicodeScalar) -> Bool {
-        return characterSet.contains(char)
-    }
+public extension Consumer.Charset {
+    var hashValue: Int { return characterSet.hashValue }
 
-    func _union(_ other: Consumer.Charset) -> Consumer.Charset {
-        return Consumer.Charset(characterSet: characterSet.union(other.characterSet))
+    // Equatable implementation
+    static func == (lhs: Consumer.Charset, rhs: Consumer.Charset) -> Bool {
+        return lhs.inverted == rhs.inverted && lhs.characterSet == rhs.characterSet
     }
 
     // Note: this calculation is really expensive
     var ranges: [CountableClosedRange<UInt32>] {
         var ranges = [CountableClosedRange<UInt32>]()
+        let bitmap: Data = characterSet.bitmapRepresentation
         var first: UInt32?, last: UInt32?
-        for plane: UInt8 in 0 ... 16 where characterSet.hasMember(inPlane: plane) {
-            for codePoint in UInt32(plane) << 16 ..< UInt32(plane + 1) << 16 {
-                if let char = UnicodeScalar(codePoint), characterSet.contains(char) {
-                    if let _last = last, codePoint == _last + 1 {
-                        last = codePoint
-                    } else {
-                        if let first = first, let last = last {
-                            ranges.append(first ... last)
-                        }
-                        first = codePoint
-                        last = codePoint
+        var plane = 0, nextPlane = 8192
+        for (j, byte) in bitmap.enumerated() where byte != 0 {
+            if j == nextPlane {
+                plane += 1
+                nextPlane += 8193
+                continue
+            }
+            for i in 0 ..< 8 where byte & 1 << i != 0 {
+                let codePoint = UInt32(j - plane) * 8 + UInt32(i)
+                if let _last = last, codePoint == _last + 1 {
+                    last = codePoint
+                } else {
+                    if let first = first, let last = last {
+                        ranges.append(first ... last)
                     }
+                    first = codePoint
+                    last = codePoint
                 }
             }
         }
@@ -630,6 +643,29 @@ private extension Consumer.Charset {
             ranges.append(first ... last)
         }
         return ranges
+    }
+}
+
+private extension Consumer.Charset {
+    func _contains(_ char: UnicodeScalar) -> Bool {
+        return characterSet.contains(char) != inverted
+    }
+
+    func _union(_ other: Consumer.Charset) -> Consumer.Charset {
+        let inverted: Bool
+        let set: CharacterSet
+        switch (self.inverted, other.inverted) {
+        case (true, true), (false, false):
+            inverted = self.inverted
+            set = characterSet.union(other.characterSet)
+        case (true, false):
+            inverted = true
+            set = characterSet.subtracting(other.characterSet)
+        case (false, true):
+            inverted = true
+            set = other.characterSet.subtracting(characterSet)
+        }
+        return Consumer.Charset(characterSet: set, inverted: inverted)
     }
 }
 

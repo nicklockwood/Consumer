@@ -33,6 +33,49 @@ import Foundation
 import XCTest
 
 class PerformanceTests: XCTestCase {
+
+    // MARK: Descriptions
+
+    func testEmojiCharacterDescription() {
+        let parser: Consumer<String> = .character("👍")
+        measure {
+            _ = parser.description
+        }
+    }
+
+    func testHexCharacterDescription() {
+        let parser: Consumer<String> =
+            .character(in: "a" ... "f") |
+            .character(in: "A" ... "F") |
+            .character(in: "0" ... "9")
+        measure {
+            _ = parser.description
+        }
+    }
+
+    func testWhitespaceCharacterSetDescription() {
+        let parser: Consumer<String> = .character(in: .whitespacesAndNewlines)
+        measure {
+            _ = parser.description
+        }
+    }
+
+    func testDecimalDigitsCharacterSetDescription() {
+        let parser: Consumer<String> = .character(in: .decimalDigits)
+        measure {
+            _ = parser.description
+        }
+    }
+
+    func testInverseCharacterSetDescription() {
+        let parser: Consumer<String> = .anyCharacter(except: "\"", "\\")
+        measure {
+            _ = parser.description
+        }
+    }
+
+    // MARK: JSON parser
+
     func testJSONConsumer() {
         measure {
             _ = try! parseJSON(json)
