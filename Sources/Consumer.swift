@@ -252,11 +252,18 @@ extension Consumer: CustomStringConvertible {
                 return "\(results.dropLast().map { $0 }.joined(separator: ", ")) or \(results.last!)"
             }
         case let .any(consumers):
-            switch consumers.count {
+            var descriptions = [String]()
+            for consumer in consumers {
+                let description = consumer.description
+                if !descriptions.contains(description) {
+                    descriptions.append(description)
+                }
+            }
+            switch descriptions.count {
             case 1:
-                return consumers[0].description
+                return descriptions[0]
             case 2...:
-                return "\(consumers.dropLast().map { $0.description }.joined(separator: ", ")) or \(consumers.last!)"
+                return "\(descriptions.dropLast().joined(separator: ", ")) or \(descriptions.last!)"
             default:
                 return "nothing"
             }

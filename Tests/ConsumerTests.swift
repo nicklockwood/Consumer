@@ -340,7 +340,10 @@ class ConsumerTests: XCTestCase {
 
     func testAnyDescription() {
         XCTAssertEqual(Consumer<String>.any(["foo", "bar"]).description, "\"foo\" or \"bar\"")
+        XCTAssertEqual(Consumer<String>.any(["foo", "foo"]).description, "\"foo\"")
         XCTAssertEqual(Consumer<String>.any(["a", "b", "c"]).description, "'a', 'b' or 'c'")
+        XCTAssertEqual(Consumer<String>.any(["a", "b", "a"]).description, "'a' or 'b'")
+        XCTAssertEqual(Consumer<String>.any(["a", "a", "b"]).description, "'a' or 'b'")
         XCTAssertEqual(Consumer<String>.any([.optional("a"), "b"]).description, "'a' or 'b'")
         XCTAssertEqual(Consumer<String>.any([.optional("foo"), "bar"]).description, "\"foo\" or \"bar\"")
         XCTAssertEqual(Consumer<String>.any(["foo"]).description, "\"foo\"")
@@ -356,6 +359,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(Consumer<String>.sequence([.label("foo", "bar")]).description, "foo")
         XCTAssertEqual(Consumer<String>.sequence([.sequence(["foo"])]).description, "\"foo\"")
         XCTAssertEqual(Consumer<String>.sequence([[.optional("foo"), "b"]]).description, "\"foo\" or 'b'")
+        XCTAssertEqual(Consumer<String>.sequence([[.optional("foo"), "foo"]]).description, "\"foo\"")
         XCTAssertEqual(Consumer<String>.sequence([.flatten("foo")]).description, "\"foo\"")
         XCTAssertEqual(Consumer<String>.sequence([.discard("foo")]).description, "\"foo\"")
         XCTAssertEqual(Consumer<String>.sequence([.replace("foo", "bar")]).description, "\"foo\"")
