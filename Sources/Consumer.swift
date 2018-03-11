@@ -572,7 +572,7 @@ private extension Consumer {
                         matches.append(.token(String(c), startOffset ..< startOffset + 1))
                         startOffset += 1
                     }
-                    return matches.isEmpty ? nil : .node(nil, matches)
+                    return index > startIndex ? .node(nil, matches) : nil
                 }
                 var matches = [Match]()
                 var lastIndex = index
@@ -601,7 +601,7 @@ private extension Consumer {
         }
         if let match = _match(self) {
             if index < input.endIndex {
-                throw Error(.unexpectedToken, remaining: input[index...])
+                throw Error(.unexpectedToken, remaining: input[max(index, bestIndex)...])
             }
             return match
         } else {

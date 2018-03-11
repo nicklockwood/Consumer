@@ -87,10 +87,10 @@ private enum Label: String {
 private let bool: Consumer<Label> = .label(.bool, "true" | "false")
 
 // number
-private let digit: Consumer<Label> = .character(in: .decimalDigits)
+private let zeroToNine: Consumer<Label> = .character(in: "0" ... "9")
 private let oneToNine: Consumer<Label> = .character(in: "1" ... "9")
-private let integer: Consumer<Label> = "0" | [oneToNine, .zeroOrMore(digit)]
-private let decimal: Consumer<Label> = [integer, .optional([".", .oneOrMore(digit)])]
+private let integer: Consumer<Label> = "0" | [oneToNine, .zeroOrMore(zeroToNine)]
+private let decimal: Consumer<Label> = [integer, .optional([".", .oneOrMore(zeroToNine)])]
 private let number: Consumer<Label> = .label(.number, .flatten(decimal))
 
 // string

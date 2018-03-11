@@ -40,10 +40,10 @@ private enum Label: String {
 }
 
 // Consumers
-private let space: Consumer<Label> = .discard(.zeroOrMore(.character(in: .whitespacesAndNewlines)))
+private let space: Consumer<Label> = .discard(.zeroOrMore(.character(in: " \t\n\r")))
 private let null: Consumer<Label> = .label(.null, "null")
 private let boolean: Consumer<Label> = .label(.boolean, "true" | "false")
-private let digit: Consumer<Label> = .character(in: .decimalDigits)
+private let digit: Consumer<Label> = .character(in: "0" ... "9")
 private let number: Consumer<Label> = .label(.number, .flatten([
     .optional("-"),
     "0" | [.character(in: "1" ... "9"), .zeroOrMore(digit)],

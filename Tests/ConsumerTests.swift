@@ -304,17 +304,17 @@ class ConsumerTests: XCTestCase {
     }
 
     func testUnterminatedSequence() {
-        let parser: Consumer<String> = ["[", .zeroOrMore("foo"), "]"]
-        let input = "["
+        let parser: Consumer<String> = ["a", "=", "5"]
+        let input = "a=6"
         XCTAssertThrowsError(try parser.match(input)) { error in
             let error = error as! Consumer<String>.Error
             switch error.kind {
-            case .expected("]"):
-                XCTAssertEqual(error.offset, 1)
+            case .expected("5"):
+                XCTAssertEqual(error.offset, 2)
             default:
                 XCTFail()
             }
-            XCTAssertEqual(error.description, "Expected ']' at 1")
+            XCTAssertEqual(error.description, "Unexpected token '6' at 2 (expected '5')")
         }
     }
 
