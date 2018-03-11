@@ -1,3 +1,9 @@
+## [0.2.4](https://github.com/nicklockwood/Consumer/releases/tag/0.2.4) (2018-03-11)
+
+- Fixed bug where error was reported at the wrong source offset 
+- Fixed bug where error description contained duplicate expected consumers
+- Replaced `zeroOrMore` with `oneOrMore` as a base type (doesn't affect the public API)
+
 ## [0.2.3](https://github.com/nicklockwood/Consumer/releases/tag/0.2.3) (2018-03-09)
 
 - Improved performance and error messaging when using Foundation's `CharacterSet` for character matching
