@@ -44,7 +44,7 @@ public indirect enum Consumer<Label: Hashable>: Equatable {
     case any([Consumer])
     case sequence([Consumer])
     case optional(Consumer)
-    case zeroOrMore(Consumer)
+    case oneOrMore(Consumer)
 
     /// Transforms
     case flatten(Consumer)
@@ -179,8 +179,8 @@ public extension Consumer {
 
 public extension Consumer {
     /// Matches a list of one or more of the specified consumer
-    static func oneOrMore(_ consumer: Consumer) -> Consumer {
-        return .sequence([consumer, .zeroOrMore(consumer)])
+    static func zeroOrMore(_ consumer: Consumer) -> Consumer {
+        return .optional(.oneOrMore(consumer))
     }
 
     /// Matches one or more of the specified consumer, interleaved with a separator
@@ -277,7 +277,7 @@ extension Consumer: CustomStringConvertible {
             }
             return Consumer.any(options).description
         case let .optional(consumer),
-             let .zeroOrMore(consumer):
+             let .oneOrMore(consumer):
             return consumer.description
         case let .flatten(consumer),
              let .discard(consumer),
@@ -297,7 +297,7 @@ extension Consumer: CustomStringConvertible {
              let (.sequence(lhs), .sequence(rhs)):
             return lhs == rhs
         case let (.optional(lhs), .optional(rhs)),
-             let (.zeroOrMore(lhs), .zeroOrMore(rhs)),
+             let (.oneOrMore(lhs), .oneOrMore(rhs)),
              let (.flatten(lhs), .flatten(rhs)),
              let (.discard(lhs), .discard(rhs)):
             return lhs == rhs
@@ -312,7 +312,7 @@ extension Consumer: CustomStringConvertible {
              (.any, _),
              (.sequence, _),
              (.optional, _),
-             (.zeroOrMore, _),
+             (.oneOrMore, _),
              (.flatten, _),
              (.discard, _),
              (.replace, _),
@@ -338,9 +338,10 @@ private extension Consumer {
             return consumers.contains { $0._isOptional }
         case let .sequence(consumers):
             return !consumers.contains { !$0._isOptional }
-        case .optional, .zeroOrMore:
+        case .optional:
             return true
-        case let .flatten(consumer),
+        case let .oneOrMore(consumer),
+             let .flatten(consumer),
              let .discard(consumer),
              let .replace(consumer, _):
             return consumer._isOptional
@@ -412,7 +413,8 @@ private extension Consumer {
                 return true
             case let .optional(consumer):
                 return _skip(consumer) || true
-            case let .zeroOrMore(consumer):
+            case let .oneOrMore(consumer):
+                let startIndex = index
                 switch consumer {
                 case let .charset(charset):
                     while _skipCharacter(charset) {}
@@ -424,7 +426,7 @@ private extension Consumer {
                         lastIndex = index
                     }
                 }
-                return true
+                return index > startIndex
             case let .flatten(consumer),
                  let .discard(consumer),
                  let .replace(consumer, _):
@@ -475,22 +477,22 @@ private extension Consumer {
                 return result
             case let .optional(consumer):
                 return _flatten(consumer) ?? ""
-            case let .zeroOrMore(consumer):
+            case let .oneOrMore(consumer):
+                let startIndex = index
                 if case let .charset(charset) = consumer {
-                    let startIndex = index
                     while _skipCharacter(charset) {}
                     if index > startIndex {
                         return String(input[startIndex ..< index])
                     }
-                    return ""
+                    return index > startIndex ? "" : nil
                 }
                 var result = ""
                 var lastIndex = index
                 while let match = _flatten(consumer), index > lastIndex {
                     lastIndex = index
-                    result += match
+                    result.append(match)
                 }
-                return result
+                return index > startIndex ? result : nil
             case let .flatten(consumer):
                 return _flatten(consumer)
             case let .discard(consumer):
@@ -560,20 +562,17 @@ private extension Consumer {
                 return .node(nil, matches)
             case let .optional(consumer):
                 return _match(consumer) ?? .node(nil, [])
-            case let .zeroOrMore(consumer):
+            case let .oneOrMore(consumer):
                 if case let .charset(charset) = consumer {
                     let startIndex = index
                     var startOffset = offset
                     while _skipCharacter(charset) {}
-                    if index > startIndex {
-                        var matches = [Match]()
-                        for c in input[startIndex ..< index] {
-                            matches.append(.token(String(c), startOffset ..< startOffset + 1))
-                            startOffset += 1
-                        }
-                        return .node(nil, matches)
+                    var matches = [Match]()
+                    for c in input[startIndex ..< index] {
+                        matches.append(.token(String(c), startOffset ..< startOffset + 1))
+                        startOffset += 1
                     }
-                    return .node(nil, [])
+                    return matches.isEmpty ? nil : .node(nil, matches)
                 }
                 var matches = [Match]()
                 var lastIndex = index
@@ -589,7 +588,7 @@ private extension Consumer {
                         matches.append(match)
                     }
                 }
-                return .node(nil, matches)
+                return matches.isEmpty ? nil : .node(nil, matches)
             case let .flatten(consumer):
                 let startOffset = offset
                 return _flatten(consumer).map { .token($0, startOffset ..< offset) }

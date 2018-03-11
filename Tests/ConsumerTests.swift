@@ -303,6 +303,21 @@ class ConsumerTests: XCTestCase {
         }
     }
 
+    func testUnterminatedSequence() {
+        let parser: Consumer<String> = ["[", .zeroOrMore("foo"), "]"]
+        let input = "["
+        XCTAssertThrowsError(try parser.match(input)) { error in
+            let error = error as! Consumer<String>.Error
+            switch error.kind {
+            case .expected("]"):
+                XCTAssertEqual(error.offset, 1)
+            default:
+                XCTFail()
+            }
+            XCTAssertEqual(error.description, "Expected ']' at 1")
+        }
+    }
+
     /// MARK: Consumer description
 
     func testLabelAndReferenceDescription() {
