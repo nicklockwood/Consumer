@@ -72,10 +72,6 @@ public extension Consumer {
         /// The range of the match in the original source (if known)
         public var range: Range<Int>? { return _range }
 
-        /// Flatten matched results into a single token
-        @available(*, deprecated, message: "Use the `.flatten` consumer instead")
-        public func flatten() -> Match { return _flatten() }
-
         /// Transform generic AST to application-specific form
         func transform(_ fn: Transform) rethrows -> Any? {
             return try _transform(fn)
@@ -186,33 +182,6 @@ public extension Consumer {
     /// Matches one or more of the specified consumer, interleaved with a separator
     static func interleaved(_ consumer: Consumer, _ separator: Consumer) -> Consumer {
         return .sequence([.zeroOrMore(.sequence([consumer, separator])), consumer])
-    }
-
-    /// Matches any character in the specified string
-    /// Note: if the string contains composed characters like "\r\n" then they
-    /// will be treated as a single character, not as individual unicode scalars
-    @available(*, deprecated, message: "Use `.character(in:)` instead")
-    static func charInString(_ string: String) -> Consumer {
-        let scalars = string.unicodeScalars
-        if scalars.count == string.count {
-            return .character(in: CharacterSet(charactersIn: string))
-        }
-        return .any(string.map { .string(String($0)) })
-    }
-
-    /// Creates a .codePoint() consumer using UnicodeScalars instead of code points
-    @available(*, deprecated, message: "Use `.character(in:)` instead")
-    static func charInRange(_ from: UnicodeScalar, _ to: UnicodeScalar) -> Consumer {
-        return .character(in: CharacterSet(charactersIn: from ... to))
-    }
-
-    @available(*, deprecated, message: "Use `.character(in:)` instead")
-    static func codePoint(_ range: CountableClosedRange<UInt32>) -> Consumer {
-        guard let from = UnicodeScalar(range.lowerBound),
-            let to = UnicodeScalar(range.upperBound) else {
-            preconditionFailure("Invalid codePoint range")
-        }
-        return .character(in: CharacterSet(charactersIn: from ... to))
     }
 }
 
@@ -728,19 +697,6 @@ private extension Consumer.Match {
             }
             return first.lowerBound ..< last.upperBound
         }
-    }
-
-    @available(*, deprecated, message: "to be removed")
-    func _flatten() -> Consumer.Match {
-        func _flatten(_ match: Consumer.Match) -> String {
-            switch match {
-            case let .token(string, _):
-                return string
-            case let .node(_, matches):
-                return matches.map(_flatten).joined()
-            }
-        }
-        return .token(_flatten(self), range)
     }
 
     func _transform(_ fn: Consumer.Transform) rethrows -> Any? {
