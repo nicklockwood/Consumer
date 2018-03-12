@@ -428,7 +428,9 @@ let array: Consumer<String> = .sequence([
 ])
 ```
 
-**Note:** You must be careful when using references like this, not just to ensure that the named consumer actually exists, but that it is included in a non-reference form somewhere in your root consumer (the one which you actually try to match against the input). In this case, `json` *is* the root consumer, so we know it exists, but what if we had defined the reference the other way around:
+**Note:** You must be careful when using references like this, not just to ensure that the named consumer actually exists, but that it is included in a non-reference form somewhere in your root consumer (the one which you actually try to match against the input).
+
+In this case, `json` *is* the root consumer, so we know it exists. But what if we had defined the reference the other way around?
 
 ```swift
 let json: Consumer<String> = .any([null, bool, number, string, object, .reference("array")])
@@ -531,7 +533,7 @@ let string: Consumer<String> = .flatten(.sequence([
     .discard("\""),
     .zeroOrMore(.any([
         .replace("\\\"", "\""), // Escaped "
-        .character(in: .anyCharacter(except: "\"", "\\")),
+        .anyCharacter(except: "\"", "\\"),
     ])),
     .discard("\""),
 ]))
@@ -558,11 +560,11 @@ Since most characters in a typical string are not \ or ", this will run much fas
 
 We mentioned the `flatten` and `discard` transforms in the [Common Transforms](#common-transforms) section above, as a convenient way to omit redundant information from the parsing results prior to applying a custom transform.
 
-But using "flatten" and "discard" can also improve performance, by simplifying the parsing process, and avoiding the need to gather a propagate unnecessary information like source offsets.
+But using "flatten" and "discard" can also improve performance, by simplifying the parsing process, and avoiding the need to gather and propagate unnecessary information like source offsets.
 
 If you intend to eventually flatten a given node of your matched results, it's  much better to do this within the consumer itself by using the `flatten` rule than by using `joined()` in your transform function. The only time when you won't be able to do this is if some of the child consumers need custom transforms to be applied, because by flattening the node tree you remove the labels that are needed to reference the node in your transform.
 
-Similarly, for unneeded match results (e.g. commas, brackets and other punctuation that isn't needed after initial parsing) you should always use `discard` to remove the node or token from the match results before applying a transform.
+Similarly, for unneeded match results (e.g. commas, brackets and other punctuation that isn't required after parsing) you should always use `discard` to remove the node or token from the match results before applying a transform.
 
 **Note:** Transform rules are applied hierarchically, so if a parent consumer already has `flatten` applied, there is no further performance benefit to be gained from applying it individually to the children of that consumer.
 
@@ -587,4 +589,4 @@ foo = (5 + 6) + 7
 
 The named variable ("foo", in this case) is then available to use in subsequent expressions.
 
-This example demonstrates a number of advanced techniques, such as mutually recursive consumer rules, and operator precedence.
+This example demonstrates a number of advanced techniques, such as mutually recursive consumer rules and operator precedence.
