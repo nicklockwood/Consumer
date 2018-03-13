@@ -19,6 +19,7 @@
     - [Typed Labels](#typed-labels)
     - [Forward References](#forward-references)
     - [Syntax Sugar](#syntax-sugar)
+    - [Error Handling](#error-handling)
 - [Performance](#performance)
     - [Backtracking](#backtracking)
     - [Character Sequences](#character-sequences)
@@ -64,19 +65,19 @@ If you prefer, there's a framework for Mac and iOS that you can import which inc
 To install Consumer using CocoaPods, add the following to your Podfile:
 
 ```ruby
-pod 'Consumer', '~> 0.2'
+pod 'Consumer', '~> 0.3'
 ```
 
 To install using Carthage, add this to your Cartfile:
 
 ```
-github "nicklockwood/Consumer" ~> 0.2
+github "nicklockwood/Consumer" ~> 0.3
 ```
 
 To install using Swift Package Manage, add this to the `dependencies:` section in your Package.swift file:
 
 ```
-.package(url: "https://github.com/nicklockwood/Consumer.git", .upToNextMinor(from: "0.2.0")),
+.package(url: "https://github.com/nicklockwood/Consumer.git", .upToNextMinor(from: "0.3.0")),
 ```
 
 ## Parsing
@@ -489,6 +490,85 @@ let fooOrbar: Consumer<String> = "foo" | "bar"
 ```
 
 Be careful when using the `|` operator for very complex expressions however, as it can cause Swift's compile time to go up exponentially due to the complexity of type inference. It's best to only use `|` for a small number of cases. If it's more than 4 or 5, or if it's deeply nested inside a complex expression, you should probably use `any()` instead.
+
+## Error Handling
+
+There are two types of error that can occur in Consumer: parsing errors and transform errors.
+
+Parsing errors are generated automatically by the Consumer framework when it encounters input that doesn't match the specified grammar. When this happens, Consumer will generate a `Consumer.Error` value that contains the kind of error that occurred, and the location of the error in the original source input.
+
+Source locations are specified as a `Consumer.Location` value, which contains the character range of the error, and can lazily compute the line number and column at which that range occurs.
+
+Transform errors are generated after the initial parsing pass by throwing an error inside the `Consumer.Transform` function. Any error thrown will be wrapped in a `Consumer.Error` so that it can be annotated with the source location.
+
+Consumer's errors conform to `CustomStringConvertible`, and can be directly displayed to the user (although the message is not localized), but how useful this message is depends partly on how you write your consumer implementation.
+
+When Consumer encounters an unexpected token, the error message will include a description of what was actually expected. Built-in consumer types like `string` and `charset` are automatically assigned meaningful descriptions. Labelled consumers will be displayed using the Label description:
+
+```swift
+let integer: Consumer<String> = .label("integer", "0" | [
+    .character(in: "1" ... "9"),
+    .zeroOrMore(.character(in: "0" ... "9")),
+])
+
+_ = try integer.match("foo") // will throw 'Unexpected token "foo" at 1:1 (expected integer)'
+```
+
+If you are using `String` as your `Label` type then the description will be the literal string value. If you are using an enum (as recommended) then by default the `rawValue` of the label enum will be displayed.
+
+The naming of your enum cases may not be optimal for user display. To fix this, you can change the label string, as follows:
+
+```swift
+enum JSONLabel: String {
+    case string = "a string"
+    case array = "an array"
+    case json = "a json value"
+}
+```
+
+This will improve the error message, but it's not localizable and may not be desirable to tie JSONLabel values to user-readable strings in case we want to serialize them, or make breaking changes in future. A better option is to make your `Label` type conform to `CustomStringConvertible`, then implement a custom `description`:
+
+```swift
+enum JSONLabel: String, CustomStringConvertible {
+    case string
+    case array
+    case json
+    
+    var description: String {
+        switch self {
+        case .string: return "a string"
+        case .array: return "an array"
+        case .json: return "a json value"
+        }
+    }
+}
+```
+
+Now the user-friendly label descriptions are independent of the actual values. This approach also make localization easier, as you could use the rawValue to index a strings file instead of a hard-coded switch statement:
+
+```swift
+var description: String {
+    return NSLocalizedString(self.rawValue, comment: "")
+}
+```
+
+Similarly, when throwing custom errors during the transform phase, it's a good idea to implement `CustomStringConvertible` for your custom error type:
+
+```swift
+enum JSONError: Error, CustomStringConvertible {
+    case invalidNumber(String)
+    case invalidCodePoint(String)
+    
+    var description: String {
+        switch self {
+        case let .invalidNumber(string):
+            return "invalid numeric literal '\(string)'"
+        case let .invalidCodePoint(string):
+            return "invalid unicode code point '\(string)'"
+        }
+    }
+}
+```
 
 
 # Performance

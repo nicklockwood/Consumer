@@ -29,7 +29,7 @@
 //  SOFTWARE.
 //
 
-import Consumer
+@testable import Consumer
 import XCTest
 
 class ConsumerTests: XCTestCase {
@@ -37,7 +37,7 @@ class ConsumerTests: XCTestCase {
 
     func testString() {
         let parser: Consumer<String> = .string("foo")
-        XCTAssertEqual(try parser.match("foo"), .token("foo", 0 ..< 3))
+        XCTAssertEqual(try parser.match("foo"), .token("foo", .at(0 ..< 3)))
         XCTAssertThrowsError(try parser.match("foobar"))
         XCTAssertThrowsError(try parser.match("barfoo"))
         XCTAssertThrowsError(try parser.match(""))
@@ -45,8 +45,8 @@ class ConsumerTests: XCTestCase {
 
     func testCharacter() {
         let parser: Consumer<String> = .character(in: "a" ... "c")
-        XCTAssertEqual(try parser.match("a"), .token("a", 0 ..< 1))
-        XCTAssertEqual(try parser.match("c"), .token("c", 0 ..< 1))
+        XCTAssertEqual(try parser.match("a"), .token("a", .at(0 ..< 1)))
+        XCTAssertEqual(try parser.match("c"), .token("c", .at(0 ..< 1)))
         XCTAssertThrowsError(try parser.match("d"))
         XCTAssertThrowsError(try parser.match("A"))
         XCTAssertThrowsError(try parser.match(""))
@@ -56,8 +56,8 @@ class ConsumerTests: XCTestCase {
 
     func testAnyOf() {
         let parser: Consumer<String> = .any([.string("foo"), .string("bar")])
-        XCTAssertEqual(try parser.match("foo"), .token("foo", 0 ..< 3))
-        XCTAssertEqual(try parser.match("bar"), .token("bar", 0 ..< 3))
+        XCTAssertEqual(try parser.match("foo"), .token("foo", .at(0 ..< 3)))
+        XCTAssertEqual(try parser.match("bar"), .token("bar", .at(0 ..< 3)))
         XCTAssertThrowsError(try parser.match("foobar"))
         XCTAssertThrowsError(try parser.match("barfoo"))
         XCTAssertThrowsError(try parser.match(""))
@@ -65,7 +65,7 @@ class ConsumerTests: XCTestCase {
 
     func testSequence() {
         let parser: Consumer<String> = .sequence([.string("foo"), .string("bar")])
-        XCTAssertEqual(try parser.match("foobar"), .node(nil, [.token("foo", 0 ..< 3), .token("bar", 3 ..< 6)]))
+        XCTAssertEqual(try parser.match("foobar"), .node(nil, [.token("foo", .at(0 ..< 3)), .token("bar", .at(3 ..< 6))]))
         XCTAssertThrowsError(try parser.match("foo"))
         XCTAssertThrowsError(try parser.match("barfoo"))
         XCTAssertThrowsError(try parser.match(""))
@@ -73,7 +73,7 @@ class ConsumerTests: XCTestCase {
 
     func testOptional() {
         let parser: Consumer<String> = .optional(.string("foo"))
-        XCTAssertEqual(try parser.match("foo"), .token("foo", 0 ..< 3))
+        XCTAssertEqual(try parser.match("foo"), .token("foo", .at(0 ..< 3)))
         XCTAssertEqual(try parser.match(""), .node(nil, []))
         XCTAssertThrowsError(try parser.match("foobar"))
         XCTAssertThrowsError(try parser.match("barfoo"))
@@ -81,8 +81,8 @@ class ConsumerTests: XCTestCase {
 
     func testOptional2() {
         let parser: Consumer<String> = .sequence([.optional(.string("foo")), .string("bar")])
-        XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", 0 ..< 3)]))
-        XCTAssertEqual(try parser.match("foobar"), .node(nil, [.token("foo", 0 ..< 3), .token("bar", 3 ..< 6)]))
+        XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", .at(0 ..< 3))]))
+        XCTAssertEqual(try parser.match("foobar"), .node(nil, [.token("foo", .at(0 ..< 3)), .token("bar", .at(3 ..< 6))]))
         XCTAssertThrowsError(try parser.match("foo"))
         XCTAssertThrowsError(try parser.match("barfoo"))
         XCTAssertThrowsError(try parser.match(""))
@@ -90,8 +90,8 @@ class ConsumerTests: XCTestCase {
 
     func testZeroOrMore() {
         let parser: Consumer<String> = .zeroOrMore(.string("foo"))
-        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
-        XCTAssertEqual(try parser.match("foofoo"), .node(nil, [.token("foo", 0 ..< 3), .token("foo", 3 ..< 6)]))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
+        XCTAssertEqual(try parser.match("foofoo"), .node(nil, [.token("foo", .at(0 ..< 3)), .token("foo", .at(3 ..< 6))]))
         XCTAssertEqual(try parser.match(""), .node(nil, []))
         XCTAssertThrowsError(try parser.match("foobar"))
         XCTAssertThrowsError(try parser.match("barfoo"))
@@ -99,40 +99,40 @@ class ConsumerTests: XCTestCase {
 
     func testZeroOrMore2() {
         let parser: Consumer<String> = .zeroOrMore(.character(in: "a" ... "f"))
-        XCTAssertEqual(try parser.match("abc"), .node(nil, [.token("a", 0 ..< 1), .token("b", 1 ..< 2), .token("c", 2 ..< 3)]))
+        XCTAssertEqual(try parser.match("abc"), .node(nil, [.token("a", .at(0 ..< 1)), .token("b", .at(1 ..< 2)), .token("c", .at(2 ..< 3))]))
     }
 
     /// MARK: Standard transforms
 
     func testFlattenOptional() {
         let parser: Consumer<String> = .flatten(.optional(.string("foo")))
-        XCTAssertEqual(try parser.match("foo"), .token("foo", 0 ..< 3))
-        XCTAssertEqual(try parser.match(""), .token("", 0 ..< 0))
+        XCTAssertEqual(try parser.match("foo"), .token("foo", .at(0 ..< 3)))
+        XCTAssertEqual(try parser.match(""), .token("", .at(0 ..< 0)))
     }
 
     func testFlattenAnyString() {
         let parser: Consumer<String> = .flatten("foo" | "bar")
-        XCTAssertEqual(try parser.match("bar"), .token("bar", 0 ..< 3))
+        XCTAssertEqual(try parser.match("bar"), .token("bar", .at(0 ..< 3)))
     }
 
     func testFlattenAnySequence() {
         let parser: Consumer<String> = .flatten(["a", "b"] | ["b", "a"])
-        XCTAssertEqual(try parser.match("ab"), .token("ab", 0 ..< 2))
+        XCTAssertEqual(try parser.match("ab"), .token("ab", .at(0 ..< 2)))
     }
 
     func testFlattenStringSequence() {
         let parser: Consumer<String> = .flatten(["foo", "bar"])
-        XCTAssertEqual(try parser.match("foobar"), .token("foobar", 0 ..< 6))
+        XCTAssertEqual(try parser.match("foobar"), .token("foobar", .at(0 ..< 6)))
     }
 
     func testFlattenZeroOrMoreStrings() {
         let parser: Consumer<String> = .flatten(.zeroOrMore("foo"))
-        XCTAssertEqual(try parser.match("foofoofoo"), .token("foofoofoo", 0 ..< 9))
+        XCTAssertEqual(try parser.match("foofoofoo"), .token("foofoofoo", .at(0 ..< 9)))
     }
 
     func testFlattenZeroOrMoreCharacters() {
         let parser: Consumer<String> = .flatten(.zeroOrMore(.character(in: "a" ... "f")))
-        XCTAssertEqual(try parser.match("abcefecba"), .token("abcefecba", 0 ..< 9))
+        XCTAssertEqual(try parser.match("abcefecba"), .token("abcefecba", .at(0 ..< 9)))
     }
 
     func testDiscardAnyString() {
@@ -162,7 +162,7 @@ class ConsumerTests: XCTestCase {
 
     func testReplaceSequence() {
         let parser: Consumer<String> = .replace([.string("foo"), .string("bar")], "baz")
-        XCTAssertEqual(try parser.match("foobar"), .token("baz", 0 ..< 6))
+        XCTAssertEqual(try parser.match("foobar"), .token("baz", .at(0 ..< 6)))
     }
 
     /// MARK: Sugar
@@ -221,8 +221,8 @@ class ConsumerTests: XCTestCase {
 
     func testOneOrMore() {
         let parser: Consumer<String> = .oneOrMore(.string("foo"))
-        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
-        XCTAssertEqual(try parser.match("foofoo"), .node(nil, [.token("foo", 0 ..< 3), .token("foo", 3 ..< 6)]))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
+        XCTAssertEqual(try parser.match("foofoo"), .node(nil, [.token("foo", .at(0 ..< 3)), .token("foo", .at(3 ..< 6))]))
         XCTAssertThrowsError(try parser.match("foobar"))
         XCTAssertThrowsError(try parser.match("barfoo"))
         XCTAssertThrowsError(try parser.match(""))
@@ -231,9 +231,9 @@ class ConsumerTests: XCTestCase {
     func testInterleaved() {
         let parser: Consumer<String> = .interleaved("a", ",")
         XCTAssertEqual(try parser.match("a,a"), .node(nil, [
-            .token("a", 0 ..< 1), .token(",", 1 ..< 2), .token("a", 2 ..< 3),
+            .token("a", .at(0 ..< 1)), .token(",", .at(1 ..< 2)), .token("a", .at(2 ..< 3)),
         ]))
-        XCTAssertEqual(try parser.match("a"), .node(nil, [.token("a", 0 ..< 1)]))
+        XCTAssertEqual(try parser.match("a"), .node(nil, [.token("a", .at(0 ..< 1))]))
         XCTAssertThrowsError(try parser.match("a,"))
         XCTAssertThrowsError(try parser.match("a,a,"))
         XCTAssertThrowsError(try parser.match("a,b"))
@@ -250,11 +250,11 @@ class ConsumerTests: XCTestCase {
             let error = error as! Consumer<String>.Error
             switch error.kind {
             case .unexpectedToken:
-                XCTAssertEqual(error.offset, 3)
+                XCTAssertEqual(error.location?.offset.column, 4)
             default:
                 XCTFail()
             }
-            XCTAssertEqual(error.description, "Unexpected token ' ' at 3")
+            XCTAssertEqual(error.description, "Unexpected token ' ' at 1:4")
         }
     }
 
@@ -265,11 +265,11 @@ class ConsumerTests: XCTestCase {
             let error = error as! Consumer<String>.Error
             switch error.kind {
             case .expected("foo"):
-                XCTAssertEqual(error.offset, 0)
+                XCTAssertEqual(error.location?.offset.column, 1)
             default:
                 XCTFail()
             }
-            XCTAssertEqual(error.description, "Expected \"foo\" at 0")
+            XCTAssertEqual(error.description, "Expected \"foo\" at 1:1")
         }
     }
 
@@ -280,11 +280,11 @@ class ConsumerTests: XCTestCase {
             let error = error as! Consumer<String>.Error
             switch error.kind {
             case .expected("bar"):
-                XCTAssertEqual(error.offset, 3)
+                XCTAssertEqual(error.location?.offset.column, 4)
             default:
                 XCTFail()
             }
-            XCTAssertEqual(error.description, "Unexpected token \"foobar\" at 3 (expected \"bar\")")
+            XCTAssertEqual(error.description, "Unexpected token \"foobar\" at 1:4 (expected \"bar\")")
         }
     }
 
@@ -295,11 +295,11 @@ class ConsumerTests: XCTestCase {
             let error = error as! Consumer<String>.Error
             switch error.kind {
             case .expected("baz"):
-                XCTAssertEqual(error.offset, 6)
+                XCTAssertEqual(error.location?.offset.column, 7)
             default:
                 XCTFail()
             }
-            XCTAssertEqual(error.description, "Unexpected token \"bar\" at 6 (expected \"baz\")")
+            XCTAssertEqual(error.description, "Unexpected token \"bar\" at 1:7 (expected \"baz\")")
         }
     }
 
@@ -310,11 +310,11 @@ class ConsumerTests: XCTestCase {
             let error = error as! Consumer<String>.Error
             switch error.kind {
             case .expected("5"):
-                XCTAssertEqual(error.offset, 2)
+                XCTAssertEqual(error.location?.offset.column, 3)
             default:
                 XCTFail()
             }
-            XCTAssertEqual(error.description, "Unexpected token '6' at 2 (expected '5')")
+            XCTAssertEqual(error.description, "Unexpected token '6' at 1:3 (expected '5')")
         }
     }
 
@@ -396,26 +396,26 @@ class ConsumerTests: XCTestCase {
     /// MARK: Match descriptions
 
     func testTokenDescription() {
-        XCTAssertEqual(Consumer<String>.Match.token("foo", nil).description, "\"foo\"")
-        XCTAssertEqual(Consumer<String>.Match.token("a", 1 ..< 3).description, "'a'")
+        XCTAssertEqual(Consumer<String>.Match.token("foo", .at(0 ..< 3)).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.Match.token("a", .at(1 ..< 2)).description, "'a'")
     }
 
     func testNodeDescription() {
-        XCTAssertEqual(Consumer<String>.Match.node(nil, [.token("foo", nil)]).description, "(\"foo\")")
+        XCTAssertEqual(Consumer<String>.Match.node(nil, [.token("foo", .at(0 ..< 3))]).description, "(\"foo\")")
         XCTAssertEqual(Consumer<String>.Match.node(nil, []).description, "()")
         XCTAssertEqual(Consumer<String>.Match.node(nil, [
-            .token("foo", nil), .token("bar", nil),
+            .token("foo", .at(0 ..< 3)), .token("bar", .at(0 ..< 3)),
         ]).description, "(\n    \"foo\"\n    \"bar\"\n)")
-        XCTAssertEqual(Consumer<String>.Match.node("foo", [.token("bar", nil)]).description, "(foo \"bar\")")
+        XCTAssertEqual(Consumer<String>.Match.node("foo", [.token("bar", .at(0 ..< 3))]).description, "(foo \"bar\")")
         XCTAssertEqual(Consumer<String>.Match.node("foo", []).description, "(foo)")
         XCTAssertEqual(Consumer<String>.Match.node("foo", [
-            .token("bar", nil), .token("baz", nil),
+            .token("bar", .at(0 ..< 3)), .token("baz", .at(0 ..< 3)),
         ]).description, "(foo\n    \"bar\"\n    \"baz\"\n)")
     }
 
     func testNestedNodeDescription() {
         XCTAssertEqual(Consumer<String>.Match.node("foo", [
-            .node("bar", [.token("baz", nil), .token("quux", nil)]),
+            .node("bar", [.token("baz", .at(0 ..< 3)), .token("quux", .at(0 ..< 4))]),
         ]).description, """
         (foo (bar
             "baz"
@@ -423,7 +423,7 @@ class ConsumerTests: XCTestCase {
         ))
         """)
         XCTAssertEqual(Consumer<String>.Match.node("foo", [
-            .node("bar", [.token("baz", nil)]),
+            .node("bar", [.token("baz", .at(0 ..< 3))]),
             .node("quux", []),
         ]).description, """
         (foo
@@ -438,38 +438,38 @@ class ConsumerTests: XCTestCase {
     func testZeroOrMoreOptionals() {
         let parser: Consumer<String> = .zeroOrMore([.optional("foo")])
         XCTAssertEqual(try parser.match(""), .node(nil, []))
-        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
         XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
-            .token("foo", 0 ..< 3), .token("foo", 3 ..< 6),
+            .token("foo", .at(0 ..< 3)), .token("foo", .at(3 ..< 6)),
         ]))
     }
 
     func testZeroOrMoreZeroOrMores() {
         let parser: Consumer<String> = .zeroOrMore([.zeroOrMore("foo")])
         XCTAssertEqual(try parser.match(""), .node(nil, []))
-        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
         XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
-            .token("foo", 0 ..< 3), .token("foo", 3 ..< 6),
+            .token("foo", .at(0 ..< 3)), .token("foo", .at(3 ..< 6)),
         ]))
     }
 
     func testZeroOrMoreAnyOptionals() {
         let parser: Consumer<String> = [.zeroOrMore(.optional("foo") | .optional("bar"))]
         XCTAssertEqual(try parser.match(""), .node(nil, []))
-        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
-        XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
+        XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", .at(0 ..< 3))]))
         XCTAssertEqual(try parser.match("barfoo"), .node(nil, [
-            .token("bar", 0 ..< 3), .token("foo", 3 ..< 6),
+            .token("bar", .at(0 ..< 3)), .token("foo", .at(3 ..< 6)),
         ]))
     }
 
     func testZeroOrMoreSequencesOfOptionals() {
         let parser: Consumer<String> = [.zeroOrMore([.optional("foo"), .optional("bar")])]
         XCTAssertEqual(try parser.match(""), .node(nil, []))
-        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", 0 ..< 3)]))
-        XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", 0 ..< 3)]))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
+        XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", .at(0 ..< 3))]))
         XCTAssertEqual(try parser.match("barfoo"), .node(nil, [
-            .token("bar", 0 ..< 3), .token("foo", 3 ..< 6),
+            .token("bar", .at(0 ..< 3)), .token("foo", .at(3 ..< 6)),
         ]))
     }
 }

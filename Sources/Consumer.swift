@@ -64,13 +64,20 @@ public extension Consumer {
         return try _match(input)
     }
 
+    /// Source location
+    struct Location: Equatable {
+        fileprivate var source: String.UnicodeScalarView
+        public let range: Range<String.Index>
+        public var offset: (line: Int, column: Int) { return _offset }
+    }
+
     /// Abstract syntax tree returned by consumer
     indirect enum Match: Equatable {
-        case token(String, Range<Int>?)
+        case token(String, Location)
         case node(Label?, [Match])
 
-        /// The range of the match in the original source (if known)
-        public var range: Range<Int>? { return _range }
+        /// The location of the match in the original source (if known)
+        public var location: Location? { return _location }
 
         /// Transform generic AST to application-specific form
         func transform(_ fn: Transform) rethrows -> Any? {
@@ -96,8 +103,10 @@ public extension Consumer {
         }
 
         public var kind: Kind
-        public var remaining: Substring.UnicodeScalarView?
-        public var offset: Int?
+        public var location: Location?
+        public var remaining: Substring.UnicodeScalarView? {
+            return _remaining
+        }
     }
 }
 
@@ -489,12 +498,14 @@ private extension Consumer {
                 }
                 return _match(consumer)
             case let .string(string):
-                let startOffset = offset
-                return _skipString(string) ? .token(string, startOffset ..< offset) : nil
+                let startIndex = index
+                return _skipString(string) ? .token(string,
+                    Location(source: input, range: startIndex ..< index)) : nil
             case let .charset(charset):
                 let startIndex = index
                 let string = String(input[startIndex])
-                return _skipCharacter(charset) ? .token(string, offset - 1 ..< offset) : nil
+                return _skipCharacter(charset) ? .token(string,
+                    Location(source: input, range: startIndex ..< index)) : nil
             case let .any(consumers):
                 let startIndex = index
                 for consumer in consumers {
@@ -534,12 +545,11 @@ private extension Consumer {
             case let .oneOrMore(consumer):
                 if case let .charset(charset) = consumer {
                     let startIndex = index
-                    var startOffset = offset
-                    while _skipCharacter(charset) {}
                     var matches = [Match]()
-                    for c in input[startIndex ..< index] {
-                        matches.append(.token(String(c), startOffset ..< startOffset + 1))
-                        startOffset += 1
+                    while _skipCharacter(charset) {
+                        let lastIndex = input.index(before: index)
+                        matches.append(.token(String(input[lastIndex]),
+                            Location(source: input, range: lastIndex ..< index)))
                     }
                     return index > startIndex ? .node(nil, matches) : nil
                 }
@@ -559,23 +569,71 @@ private extension Consumer {
                 }
                 return matches.isEmpty ? nil : .node(nil, matches)
             case let .flatten(consumer):
-                let startOffset = offset
-                return _flatten(consumer).map { .token($0, startOffset ..< offset) }
+                let startIndex = index
+                return _flatten(consumer).map {
+                    .token($0, Location(source: input, range: startIndex ..< index))
+                }
             case let .discard(consumer):
                 return _skip(consumer) ? .node(nil, []) : nil
             case let .replace(consumer, replacement):
-                let startOffset = offset
-                return _skip(consumer) ? .token(replacement, startOffset ..< offset) : nil
+                let startIndex = index
+                return _skip(consumer) ? .token(replacement,
+                    Location(source: input, range: startIndex ..< index)) : nil
             }
         }
         if let match = _match(self) {
             if index < input.endIndex {
-                throw Error(.unexpectedToken, remaining: input[max(index, bestIndex)...])
+                throw Error(.unexpectedToken, at: max(index, bestIndex), in: input)
             }
             return match
         } else {
-            throw Error(.expected(expected ?? self), remaining: input[bestIndex...])
+            throw Error(.expected(expected ?? self), at: bestIndex, in: input)
         }
+    }
+}
+
+// MARK: Location implementation
+
+extension Consumer.Location: CustomStringConvertible {
+    /// Human-readable description of the location
+    public var description: String {
+        return "\(offset.line):\(offset.column)"
+    }
+
+    /// Equatable implementation
+    public static func == (lhs: Consumer.Location, rhs: Consumer.Location) -> Bool {
+        return lhs.range == rhs.range
+    }
+
+    // Convenience constructor, used for testing
+    static func at(_ range: CountableRange<Int>) -> Consumer.Location {
+        let source = String(repeating: " ", count: range.upperBound).unicodeScalars
+        let range = source.index(
+            source.startIndex,
+            offsetBy: range.lowerBound
+        ) ..< source.endIndex
+        return Consumer.Location(source: source, range: range)
+    }
+}
+
+private extension Consumer.Location {
+    var _offset: (line: Int, column: Int) {
+        var line = 1
+        var column = 1
+        var wasReturn = false
+        for c in source[..<range.lowerBound] {
+            switch c {
+            case "\n" where wasReturn:
+                continue
+            case "\r", "\n":
+                line += 1
+                column = 1
+            default:
+                column += 1
+            }
+            wasReturn = (c == "\r")
+        }
+        return (line: line, column: column)
     }
 }
 
@@ -686,16 +744,17 @@ extension Consumer.Match: CustomStringConvertible {
 }
 
 private extension Consumer.Match {
-    var _range: Range<Int>? {
+    var _location: Consumer.Location? {
         switch self {
-        case let .token(_, range):
-            return range
+        case let .token(_, location):
+            return location
         case let .node(_, matches):
-            guard let first = matches.first?.range,
-                let last = matches.last?.range else {
+            guard let source = matches.first?.location?.source,
+                let startIndex = matches.first?.location?.range.lowerBound,
+                let endIndex = matches.last?.location?.range.upperBound else {
                 return nil
             }
-            return first.lowerBound ..< last.upperBound
+            return Consumer.Location(source: source, range: startIndex ..< endIndex)
         }
     }
 
@@ -712,7 +771,7 @@ private extension Consumer.Match {
         } catch let error as Consumer.Error {
             throw error
         } catch {
-            throw Consumer.Error(error, offset: range?.lowerBound)
+            throw Consumer.Error(error, at: location)
         }
     }
 }
@@ -734,7 +793,7 @@ extension Consumer.Error: CustomStringConvertible {
                 }
             }
         }
-        let offset = self.offset.map { " at \($0)" } ?? ""
+        let offset = self.location.map { " at \($0)" } ?? ""
         switch kind {
         case let .expected(consumer):
             if !token.isEmpty {
@@ -750,23 +809,22 @@ extension Consumer.Error: CustomStringConvertible {
 }
 
 private extension Consumer.Error {
-    init(_ kind: Kind, remaining: Substring.UnicodeScalarView?) {
-        self.kind = kind
-        self.remaining = remaining
-        offset = remaining.map {
-            $0.distance(from: "".startIndex, to: $0.startIndex)
-        }
+    var _remaining: Substring.UnicodeScalarView? {
+        return location.map { $0.source[$0.range.lowerBound...] }
     }
 
-    init(_ error: Swift.Error, offset: Int?) {
+    init(_ kind: Consumer.Error.Kind, at: String.Index, in source: String.UnicodeScalarView) {
+        self.kind = kind
+        location = Consumer.Location(source: source, range: at ..< source.endIndex)
+    }
+
+    init(_ error: Swift.Error, at: Consumer.Location?) {
         if let error = error as? Consumer.Error {
             self = error
-            self.offset = self.offset ?? offset
-            return
+        } else {
+            kind = .custom(error)
         }
-        kind = .custom(error)
-        self.offset = self.offset ?? offset
-        remaining = nil
+        location = at ?? location
     }
 }
 
@@ -804,12 +862,12 @@ private func escapeCodePoint(_ codePoint: UInt32, inString: Bool = false) -> Str
 
 // Human-readable string
 private func escapeString<T: StringProtocol>(_ string: T) -> String {
-    var scalars = Substring(string).unicodeScalars
-    if scalars.count == 1 {
+    let scalars = string.unicodeScalars
+    if !scalars.isEmpty, scalars.index(after: scalars.startIndex) == scalars.endIndex {
         return escapeCodePoint(scalars.first!.value)
     }
     var result = "\""
-    while let char = scalars.popFirst() {
+    for char in scalars {
         result += escapeCodePoint(char.value, inString: true)
     }
     return result.appending("\"")
