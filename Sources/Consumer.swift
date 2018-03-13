@@ -380,7 +380,7 @@ private extension Consumer {
                 let startIndex = index
                 let startOffset = offset
                 for consumer in consumers where !_skip(consumer) {
-                    if index > bestIndex {
+                    if index >= bestIndex {
                         bestIndex = index
                         expected = consumer
                     }
@@ -443,7 +443,7 @@ private extension Consumer {
                     if let match = _flatten(consumer) {
                         result += match
                     } else {
-                        if index > bestIndex {
+                        if index >= bestIndex {
                             bestIndex = index
                             expected = consumer
                         }
@@ -530,7 +530,7 @@ private extension Consumer {
                             matches.append(match)
                         }
                     } else {
-                        if index > bestIndex {
+                        if index >= bestIndex {
                             bestIndex = index
                             expected = consumer
                         }
@@ -578,12 +578,15 @@ private extension Consumer {
             case let .replace(consumer, replacement):
                 let startIndex = index
                 return _skip(consumer) ? .token(replacement,
-                    Location(source: input, range: startIndex ..< index)) : nil
+                                                Location(source: input, range: startIndex ..< index)) : nil
             }
         }
         if let match = _match(self) {
             if index < input.endIndex {
-                throw Error(.unexpectedToken, at: max(index, bestIndex), in: input)
+                if bestIndex > index, let expected = expected {
+                    throw Error(.expected(expected), at: bestIndex, in: input)
+                }
+                throw Error(.unexpectedToken, at: index, in: input)
             }
             return match
         } else {
