@@ -168,43 +168,48 @@ class ConsumerTests: XCTestCase {
     /// MARK: Sugar
 
     func testStringLiteralConstructor() {
-        let foo: Consumer<String> = .string("foo")
-        XCTAssertEqual(foo, "foo")
+        let foo: Consumer<String> = "foo"
+        XCTAssertEqual(foo, .string("foo"))
     }
 
     func testArrayLiteralConstructor() {
-        let foobar: Consumer<String> = .sequence(["foo", "bar"])
-        XCTAssertEqual(foobar, ["foo", "bar"])
+        let foobar: Consumer<String> = ["foo", "bar"]
+        XCTAssertEqual(foobar, .sequence(["foo", "bar"]))
+    }
+
+    func testArrayLiteralConstructor2() {
+        let foobar: Consumer<String> = ["foo"]
+        XCTAssertEqual(foobar, "foo")
     }
 
     func testOrOperator() {
-        let fooOrBar: Consumer<String> = .any(["foo", "bar"])
-        XCTAssertEqual(fooOrBar, "foo" | "bar")
+        let fooOrBar: Consumer<String> = "foo" | "bar"
+        XCTAssertEqual(fooOrBar, .any(["foo", "bar"]))
     }
 
     func testOrOperator2() {
-        let fooOrBarOrBaz: Consumer<String> = .any(["foo", "bar", "baz"])
-        XCTAssertEqual(fooOrBarOrBaz, "foo" | .any(["bar", "baz"]))
+        let fooOrBarOrBaz: Consumer<String> = "foo" | .any(["bar", "baz"])
+        XCTAssertEqual(fooOrBarOrBaz, .any(["foo", "bar", "baz"]))
     }
 
     func testOrOperator3() {
-        let fooOrBarOrBaz: Consumer<String> = .any(["foo", "bar", "baz"])
-        XCTAssertEqual(fooOrBarOrBaz, .any(["foo", "bar"]) | "baz")
+        let fooOrBarOrBaz: Consumer<String> = .any(["foo", "bar"]) | "baz"
+        XCTAssertEqual(fooOrBarOrBaz, .any(["foo", "bar", "baz"]))
     }
 
     func testOrOperator4() {
-        let fooOrBarOrBazOrQuux: Consumer<String> = .any(["foo", "bar", "baz", "quux"])
-        XCTAssertEqual(fooOrBarOrBazOrQuux, .any(["foo", "bar"]) | .any(["baz", "quux"]))
+        let fooOrBarOrBazOrQuux: Consumer<String> = .any(["foo", "bar"]) | .any(["baz", "quux"])
+        XCTAssertEqual(fooOrBarOrBazOrQuux, .any(["foo", "bar", "baz", "quux"]))
     }
 
     func testOrOperator5() {
-        let aOrB: Consumer<String> = .character(in: "a" ... "b")
-        XCTAssertEqual(aOrB, .character("a") | .character("b"))
+        let aOrB: Consumer<String> = .character("a") | .character("b")
+        XCTAssertEqual(aOrB, .character(in: "a" ... "b"))
     }
 
     func testOrOperator6() {
-        let aToE: Consumer<String> = .character(in: "abcde")
-        XCTAssertEqual(aToE, .character(in: "a" ... "c") | .character(in: "b" ... "e"))
+        let aToE: Consumer<String> = .character(in: "a" ... "c") | .character(in: "b" ... "e")
+        XCTAssertEqual(aToE, .character(in: "abcde"))
     }
 
     func testOrOperator7() {
@@ -439,8 +444,26 @@ class ConsumerTests: XCTestCase {
 
     /// MARK: Edge cases with optionals
 
-    func testZeroOrMoreOptionals() {
-        let parser: Consumer<String> = .zeroOrMore([.optional("foo")])
+    func testReplaceOptional() {
+        // Replacement is applied even if nothing is matched
+        let parser: Consumer<String> = .replace(.optional("foo"), "bar")
+        XCTAssertTrue(parser.isOptional)
+        XCTAssertEqual(try parser.match("foo"), .token("bar", .at(0 ..< 3)))
+        XCTAssertEqual(try parser.match(""), .token("bar", .at(0 ..< 0)))
+        XCTAssertThrowsError(try parser.match("bar"))
+    }
+
+    func testDiscardOptional() {
+        let parser: Consumer<String> = .discard(.optional("foo"))
+        XCTAssertTrue(parser.isOptional)
+        XCTAssertEqual(try parser.match("foo"), .node(nil, []))
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+        XCTAssertThrowsError(try parser.match("bar"))
+    }
+
+    func testOneOrMoreOptionals() {
+        let parser: Consumer<String> = .oneOrMore(.optional("foo"))
+        XCTAssertTrue(parser.isOptional)
         XCTAssertEqual(try parser.match(""), .node(nil, []))
         XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
         XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
@@ -448,8 +471,42 @@ class ConsumerTests: XCTestCase {
         ]))
     }
 
-    func testZeroOrMoreZeroOrMores() {
-        let parser: Consumer<String> = .zeroOrMore([.zeroOrMore("foo")])
+    func testFlattenOneOrMoreOptionals() {
+        let parser: Consumer<String> = .flatten(.oneOrMore(.optional("foo")))
+        XCTAssertTrue(parser.isOptional)
+        XCTAssertEqual(try parser.match(""), .token("", .at(0 ..< 0)))
+        XCTAssertEqual(try parser.match("foo"), .token("foo", .at(0 ..< 3)))
+        XCTAssertEqual(try parser.match("foofoo"), .token("foofoo", .at(0 ..< 6)))
+    }
+
+    func testDiscardOneOrMoreOptionals() {
+        let parser: Consumer<String> = .discard(.oneOrMore(.optional("foo")))
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, []))
+        XCTAssertEqual(try parser.match("foofoo"), .node(nil, []))
+    }
+
+    func testOneOrMoreReplaceOptionals() {
+        // This behavior sort of makes sense, but is very weird
+        let parser: Consumer<String> = .oneOrMore(.replace(.optional("foo"), "bar"))
+        XCTAssertEqual(try parser.match(""), .node(nil, [.token("bar", .at(0 ..< 0))]))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, [
+            .token("bar", .at(0 ..< 3)), .token("bar", .at(3 ..< 3))
+        ]))
+        XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
+            .token("bar", .at(0 ..< 3)), .token("bar", .at(3 ..< 6)), .token("bar", .at(6 ..< 6)),
+        ]))
+    }
+
+    func testFlattenOneOrMoreReplaceOptionals() {
+        let parser: Consumer<String> = .flatten(.oneOrMore(.replace(.optional("foo"), "bar")))
+        XCTAssertEqual(try parser.match(""),  .token("bar", .at(0 ..< 0)))
+        XCTAssertEqual(try parser.match("foo"), .token("barbar", .at(0 ..< 3)))
+        XCTAssertEqual(try parser.match("foofoo"), .token("barbarbar", .at(0 ..< 6)))
+    }
+
+    func testOneOrMoreZeroOrMores() {
+        let parser: Consumer<String> = .oneOrMore(.zeroOrMore("foo"))
         XCTAssertEqual(try parser.match(""), .node(nil, []))
         XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
         XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
@@ -457,18 +514,91 @@ class ConsumerTests: XCTestCase {
         ]))
     }
 
-    func testZeroOrMoreAnyOptionals() {
-        let parser: Consumer<String> = [.zeroOrMore(.optional("foo") | .optional("bar"))]
+    func testAnyOptionals() {
+        let parser: Consumer<String> = .optional("foo") | .optional("bar")
+        XCTAssertTrue(parser.isOptional)
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+        XCTAssertEqual(try parser.match("foo"), .token("foo", .at(0 ..< 3)))
+        XCTAssertEqual(try parser.match("bar"), .token("bar", .at(0 ..< 3)))
+    }
+
+    func testFlattenAnyOptionals() {
+        let parser: Consumer<String> = .flatten(.optional("foo") | .optional("bar"))
+        XCTAssertTrue(parser.isOptional)
+        XCTAssertEqual(try parser.match(""), .token("", .at(0 ..< 0)))
+        XCTAssertEqual(try parser.match("foo"), .token("foo", .at(0 ..< 3)))
+        XCTAssertEqual(try parser.match("bar"), .token("bar", .at(0 ..< 3)))
+    }
+
+    func testDiscardAnyOptionals() {
+        let parser: Consumer<String> = .discard(.optional("foo") | .optional("bar"))
+        XCTAssertTrue(parser.isOptional)
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, []))
+        XCTAssertEqual(try parser.match("bar"), .node(nil, []))
+    }
+
+    func testSequenceOfOptionals() {
+        let parser: Consumer<String> = [.optional("foo"), .optional("bar")]
+        XCTAssertTrue(parser.isOptional)
         XCTAssertEqual(try parser.match(""), .node(nil, []))
         XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
         XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", .at(0 ..< 3))]))
-        XCTAssertEqual(try parser.match("barfoo"), .node(nil, [
-            .token("bar", .at(0 ..< 3)), .token("foo", .at(3 ..< 6)),
+        XCTAssertEqual(try parser.match("foobar"), .node(nil, [
+            .token("foo", .at(0 ..< 3)), .token("bar", .at(3 ..< 6))
         ]))
     }
 
-    func testZeroOrMoreSequencesOfOptionals() {
-        let parser: Consumer<String> = [.zeroOrMore([.optional("foo"), .optional("bar")])]
+    func testFlattenSequenceOfOptionals() {
+        let parser: Consumer<String> = .flatten([.optional("foo"), .optional("bar")])
+        XCTAssertTrue(parser.isOptional)
+        XCTAssertEqual(try parser.match(""), .token("", .at(0 ..< 0)))
+        XCTAssertEqual(try parser.match("foo"), .token("foo", .at(0 ..< 3)))
+        XCTAssertEqual(try parser.match("bar"), .token("bar", .at(0 ..< 3)))
+        XCTAssertEqual(try parser.match("foobar"), .token("foobar", .at(0 ..< 6)))
+    }
+
+    func testDiscardSequenceOfOptionals() {
+        let parser: Consumer<String> = .discard([.optional("foo"), .optional("bar")])
+        XCTAssertTrue(parser.isOptional)
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+        XCTAssertEqual(try parser.match("foo"), .node(nil, []))
+        XCTAssertEqual(try parser.match("bar"), .node(nil, []))
+        XCTAssertEqual(try parser.match("foobar"), .node(nil, []))
+    }
+
+    func testEmptyAny() {
+        let parser: Consumer<String> = .any([])
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+    }
+
+    func testFlattenEmptyAny() {
+        let parser: Consumer<String> = .flatten(.any([]))
+        XCTAssertEqual(try parser.match(""), .token("", .at(0 ..< 0)))
+    }
+
+    func testDiscardEmptyAny() {
+        let parser: Consumer<String> = .discard(.any([]))
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+    }
+
+    func testEmptySequence() {
+        let parser: Consumer<String> = .sequence([])
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+    }
+
+    func testFlattenEmptySequence() {
+        let parser: Consumer<String> = .flatten(.sequence([]))
+        XCTAssertEqual(try parser.match(""), .token("", .at(0 ..< 0)))
+    }
+
+    func testDiscardEmptySequence() {
+        let parser: Consumer<String> = .discard(.sequence([]))
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+    }
+
+    func testOneOrMoreAnyOptionals() {
+        let parser: Consumer<String> = .oneOrMore(.optional("foo") | .optional("bar"))
         XCTAssertEqual(try parser.match(""), .node(nil, []))
         XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
         XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", .at(0 ..< 3))]))

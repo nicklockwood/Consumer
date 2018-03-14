@@ -128,7 +128,11 @@ extension Consumer: ExpressibleByStringLiteral, ExpressibleByArrayLiteral {
 
     /// Create .sequence() consumer from an array literal
     public init(arrayLiteral: Consumer...) {
-        self = .sequence(arrayLiteral)
+        if arrayLiteral.count == 1, let first = arrayLiteral.first {
+            self = first
+        } else {
+            self = .sequence(arrayLiteral)
+        }
     }
 
     /// Converts two consumers into an .any() consumer
@@ -306,9 +310,9 @@ private extension Consumer {
         case .string, .charset:
             return false
         case let .any(consumers):
-            return consumers.contains { $0._isOptional }
+            return consumers.isEmpty || consumers.contains { $0._isOptional }
         case let .sequence(consumers):
-            return !consumers.contains { !$0._isOptional }
+            return consumers.isEmpty || !consumers.contains { !$0._isOptional }
         case .optional:
             return true
         case let .oneOrMore(consumer),
@@ -323,30 +327,25 @@ private extension Consumer {
         var consumersByName = [Label: Consumer]()
         let input = input.unicodeScalars
         var index = input.startIndex
-        var offset = 0
 
         var bestIndex = input.startIndex
         var expected: Consumer?
 
         func _skipString(_ string: String) -> Bool {
             let scalars = string.unicodeScalars
-            var newOffset = offset
             var newIndex = index
             for c in scalars {
                 guard newIndex < input.endIndex, input[newIndex] == c else {
                     return false
                 }
-                newOffset += 1
                 newIndex = input.index(after: newIndex)
             }
             index = newIndex
-            offset = newOffset
             return true
         }
 
         func _skipCharacter(_ charset: Charset) -> Bool {
             if index < input.endIndex, charset._contains(input[index]) {
-                offset += 1
                 index = input.index(after: index)
                 return true
             }
@@ -368,17 +367,25 @@ private extension Consumer {
             case let .charset(charset):
                 return _skipCharacter(charset)
             case let .any(consumers):
-                return consumers.contains(where: _skip)
+                let startIndex = index
+                var matched = false
+                for consumer in consumers {
+                    if _skip(consumer) {
+                        if index > startIndex {
+                            return true
+                        }
+                        matched = true
+                    }
+                }
+                return matched || consumers.isEmpty
             case let .sequence(consumers):
                 let startIndex = index
-                let startOffset = offset
                 for consumer in consumers where !_skip(consumer) {
                     if index >= bestIndex {
                         bestIndex = index
                         expected = consumer
                     }
                     index = startIndex
-                    offset = startOffset
                     return false
                 }
                 return true
@@ -389,11 +396,12 @@ private extension Consumer {
                 switch consumer {
                 case let .charset(charset):
                     while _skipCharacter(charset) {}
-                case let .string(string) where !string.isEmpty:
-                    while _skipString(string) {}
                 default:
                     var lastIndex = index
-                    while _skip(consumer), index > lastIndex {
+                    while _skip(consumer) {
+                        if index == lastIndex {
+                            return true
+                        }
                         lastIndex = index
                     }
                 }
@@ -422,15 +430,18 @@ private extension Consumer {
                 return _skipCharacter(charset) ? String(input[startIndex]) : nil
             case let .any(consumers):
                 let startIndex = index
+                var firstMatch: String?
                 for consumer in consumers {
-                    if let match = _flatten(consumer), index > startIndex {
-                        return match
+                    if let match = _flatten(consumer) {
+                        if index > startIndex {
+                            return match
+                        }
+                        firstMatch = firstMatch ?? match
                     }
                 }
-                return nil
+                return firstMatch ?? (consumers.isEmpty ? "" : nil)
             case let .sequence(consumers):
                 let startIndex = index
-                let startOffset = offset
                 var result = ""
                 for consumer in consumers {
                     if let match = _flatten(consumer) {
@@ -441,7 +452,6 @@ private extension Consumer {
                             expected = consumer
                         }
                         index = startIndex
-                        offset = startOffset
                         return nil
                     }
                 }
@@ -452,16 +462,16 @@ private extension Consumer {
                 let startIndex = index
                 if case let .charset(charset) = consumer {
                     while _skipCharacter(charset) {}
-                    if index > startIndex {
-                        return String(input[startIndex ..< index])
-                    }
-                    return index > startIndex ? "" : nil
+                    return index > startIndex ? String(input[startIndex ..< index]) : nil
                 }
                 var result = ""
                 var lastIndex = index
-                while let match = _flatten(consumer), index > lastIndex {
-                    lastIndex = index
+                while let match = _flatten(consumer) {
                     result.append(match)
+                    if index == lastIndex {
+                        return result
+                    }
+                    lastIndex = index
                 }
                 return index > startIndex ? result : nil
             case let .flatten(consumer):
@@ -501,15 +511,18 @@ private extension Consumer {
                     string, Location(source: input, range: startIndex ..< index)) : nil
             case let .any(consumers):
                 let startIndex = index
+                var firstMatch: Match?
                 for consumer in consumers {
-                    if let match = _match(consumer), index > startIndex {
-                        return match
+                    if let match = _match(consumer) {
+                        if index > startIndex {
+                            return match
+                        }
+                        firstMatch = firstMatch ?? match
                     }
                 }
-                return nil
+                return firstMatch ?? (consumers.isEmpty ? .node(nil, []) : nil)
             case let .sequence(consumers):
                 let startIndex = index
-                let startOffset = offset
                 var matches = [Match]()
                 for consumer in consumers {
                     if let match = _match(consumer) {
@@ -528,7 +541,6 @@ private extension Consumer {
                             expected = consumer
                         }
                         index = startIndex
-                        offset = startOffset
                         return nil
                     }
                 }
@@ -536,21 +548,10 @@ private extension Consumer {
             case let .optional(consumer):
                 return _match(consumer) ?? .node(nil, [])
             case let .oneOrMore(consumer):
-                if case let .charset(charset) = consumer {
-                    let startIndex = index
-                    var matches = [Match]()
-                    while _skipCharacter(charset) {
-                        let lastIndex = input.index(before: index)
-                        matches.append(.token(
-                            String(input[lastIndex]),
-                            Location(source: input, range: lastIndex ..< index)))
-                    }
-                    return index > startIndex ? .node(nil, matches) : nil
-                }
                 var matches = [Match]()
+                var matched = false
                 var lastIndex = index
-                while let match = _match(consumer), index > lastIndex {
-                    lastIndex = index
+                while let match = _match(consumer) {
                     switch match {
                     case let .node(name, _matches):
                         if name != nil {
@@ -560,8 +561,13 @@ private extension Consumer {
                     case .token:
                         matches.append(match)
                     }
+                    if index == lastIndex {
+                        return .node(nil, matches)
+                    }
+                    lastIndex = index
+                    matched = true
                 }
-                return matches.isEmpty ? nil : .node(nil, matches)
+                return matched ? .node(nil, matches) : nil
             case let .flatten(consumer):
                 let startIndex = index
                 return _flatten(consumer).map {
