@@ -64,6 +64,9 @@ public extension Consumer {
         return try _match(input)
     }
 
+    /// Will the consumer match empty input?
+    var isOptional: Bool { return _isOptional }
+
     /// Source location
     struct Location: Equatable {
         fileprivate var source: String.UnicodeScalarView
