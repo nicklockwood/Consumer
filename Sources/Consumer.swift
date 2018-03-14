@@ -285,17 +285,7 @@ extension Consumer: CustomStringConvertible {
             return lhs.0 == rhs.0 && lhs.1 == rhs.1
         case let (.reference(lhs), .reference(rhs)):
             return lhs == rhs
-        case (.string, _),
-             (.charset, _),
-             (.any, _),
-             (.sequence, _),
-             (.optional, _),
-             (.oneOrMore, _),
-             (.flatten, _),
-             (.discard, _),
-             (.replace, _),
-             (.label, _),
-             (.reference, _):
+        default:
             return false
         }
     }
