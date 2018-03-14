@@ -269,7 +269,7 @@ class ConsumerTests: XCTestCase {
             default:
                 XCTFail()
             }
-            XCTAssertEqual(error.description, "Expected \"foo\" at 1:1")
+            XCTAssertEqual(error.description, "Expected 'foo' at 1:1")
         }
     }
 
@@ -284,7 +284,7 @@ class ConsumerTests: XCTestCase {
             default:
                 XCTFail()
             }
-            XCTAssertEqual(error.description, "Unexpected token \"foobar\" at 1:4 (expected \"bar\")")
+            XCTAssertEqual(error.description, "Unexpected token 'foobar' at 1:4 (expected 'bar')")
         }
     }
 
@@ -299,7 +299,7 @@ class ConsumerTests: XCTestCase {
             default:
                 XCTFail()
             }
-            XCTAssertEqual(error.description, "Unexpected token \"bar\" at 1:7 (expected \"baz\")")
+            XCTAssertEqual(error.description, "Unexpected token 'bar' at 1:7 (expected 'baz')")
         }
     }
 
@@ -326,91 +326,95 @@ class ConsumerTests: XCTestCase {
     }
 
     func testStringDescription() {
-        XCTAssertEqual(Consumer<String>.string("foo").description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.string("foo").description, "'foo'")
         XCTAssertEqual(Consumer<String>.string("\0").description, "'\\0'")
         XCTAssertEqual(Consumer<String>.string("\t").description, "'\\t'")
         XCTAssertEqual(Consumer<String>.string("\r").description, "'\\r'")
         XCTAssertEqual(Consumer<String>.string("\n").description, "'\\n'")
-        XCTAssertEqual(Consumer<String>.string("\r\n").description, "\"\\r\\n\"")
-        XCTAssertEqual(Consumer<String>.string("\"").description, "'\\\"'")
-        XCTAssertEqual(Consumer<String>.string("\'").description, "'\\''")
-        XCTAssertEqual(Consumer<String>.string("ö").description, "U+00F6")
-        XCTAssertEqual(Consumer<String>.string("Zöe").description, "\"Z\\u{F6}e\"")
-        XCTAssertEqual(Consumer<String>.string("👍").description, "U+1F44D")
-        XCTAssertEqual(Consumer<String>.string("Thanks 👍").description, "\"Thanks \\u{1F44D}\"")
+        XCTAssertEqual(Consumer<String>.string("\r\n").description, "'\\r\\n'")
+        XCTAssertEqual(Consumer<String>.string("\"").description, "'\"'")
+        XCTAssertEqual(Consumer<String>.string("'").description, "'''")
+        XCTAssertEqual(Consumer<String>.string("' ").description, "'' '")
+        XCTAssertEqual(Consumer<String>.string("ö").description, "'ö'")
+        XCTAssertEqual(Consumer<String>.string("👍").description, "'👍'")
+        XCTAssertEqual(Consumer<String>.string("\u{8}").description, "'\\u{8}'")
+        XCTAssertEqual(Consumer<String>.string("Thanks 👍").description, "'Thanks 👍'")
     }
 
     func testCharacterDescription() {
         XCTAssertEqual(Consumer<String>.character("!").description, "'!'")
         XCTAssertEqual(Consumer<String>.character(in: "A" ... "F").description, "'A' – 'F'")
         XCTAssertEqual(Consumer<String>
-            .character(in: UnicodeScalar(257)! ... UnicodeScalar(999)!).description, "U+0101 – U+03E7")
-        XCTAssertEqual(Consumer<String>.character(in: "👍" ... "👍").description, "U+1F44D")
+            .character(in: UnicodeScalar(11)! ... UnicodeScalar(17)!).description, "U+000B – U+0011")
+        XCTAssertEqual(Consumer<String>.character(in: "👍" ... "👍").description, "'👍'")
         XCTAssertEqual(Consumer<String>.character(in: "12").description, "'1' or '2'")
         XCTAssertEqual(Consumer<String>.character(in: "1356").description, "'1', '3', '5' or '6'")
+        XCTAssertEqual(Consumer<String>.character(in: "\"").description, "'\"'")
+        XCTAssertEqual(Consumer<String>.character(in: "'").description, "'''")
         XCTAssertEqual(Consumer<String>.character(in: "").description, "nothing")
-        XCTAssertEqual(Consumer<String>.anyCharacter(except: "\"").description, "any character except '\\\"'")
+        XCTAssertEqual(Consumer<String>.character("\u{8}").description, "U+0008")
+        XCTAssertEqual(Consumer<String>.anyCharacter(except: "\"").description, "any character except '\"'")
         XCTAssertEqual(Consumer<String>.anyCharacter().description, "any character")
     }
 
     func testAnyDescription() {
-        XCTAssertEqual(Consumer<String>.any(["foo", "bar"]).description, "\"foo\" or \"bar\"")
-        XCTAssertEqual(Consumer<String>.any(["foo", "foo"]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.any(["foo", "bar"]).description, "'foo' or 'bar'")
+        XCTAssertEqual(Consumer<String>.any(["foo", "foo"]).description, "'foo'")
         XCTAssertEqual(Consumer<String>.any(["a", "b", "c"]).description, "'a', 'b' or 'c'")
         XCTAssertEqual(Consumer<String>.any(["a", "b", "a"]).description, "'a' or 'b'")
         XCTAssertEqual(Consumer<String>.any(["a", "a", "b"]).description, "'a' or 'b'")
         XCTAssertEqual(Consumer<String>.any([.optional("a"), "b"]).description, "'a' or 'b'")
-        XCTAssertEqual(Consumer<String>.any([.optional("foo"), "bar"]).description, "\"foo\" or \"bar\"")
-        XCTAssertEqual(Consumer<String>.any(["foo"]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.any([.optional("foo"), "bar"]).description, "'foo' or 'bar'")
+        XCTAssertEqual(Consumer<String>.any(["foo"]).description, "'foo'")
         XCTAssertEqual(Consumer<String>.any([]).description, "nothing")
     }
 
     func testSequenceDescription() {
-        XCTAssertEqual(Consumer<String>.sequence(["foo", "bar"]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.sequence(["foo", "bar"]).description, "'foo'")
         XCTAssertEqual(Consumer<String>.sequence(["a" | "b"]).description, "'a' or 'b'")
         XCTAssertEqual(Consumer<String>.sequence([.optional("a"), "b"]).description, "'a' or 'b'")
-        XCTAssertEqual(Consumer<String>.sequence(["foo"]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.sequence(["foo"]).description, "'foo'")
         XCTAssertEqual(Consumer<String>.sequence([.reference("foo")]).description, "foo")
         XCTAssertEqual(Consumer<String>.sequence([.label("foo", "bar")]).description, "foo")
-        XCTAssertEqual(Consumer<String>.sequence([.sequence(["foo"])]).description, "\"foo\"")
-        XCTAssertEqual(Consumer<String>.sequence([[.optional("foo"), "b"]]).description, "\"foo\" or 'b'")
-        XCTAssertEqual(Consumer<String>.sequence([[.optional("foo"), "foo"]]).description, "\"foo\"")
-        XCTAssertEqual(Consumer<String>.sequence([.flatten("foo")]).description, "\"foo\"")
-        XCTAssertEqual(Consumer<String>.sequence([.discard("foo")]).description, "\"foo\"")
-        XCTAssertEqual(Consumer<String>.sequence([.replace("foo", "bar")]).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.sequence([.sequence(["foo"])]).description, "'foo'")
+        XCTAssertEqual(Consumer<String>.sequence([[.optional("foo"), "b"]]).description, "'foo' or 'b'")
+        XCTAssertEqual(Consumer<String>.sequence([[.optional("foo"), "foo"]]).description, "'foo'")
+        XCTAssertEqual(Consumer<String>.sequence([.flatten("foo")]).description, "'foo'")
+        XCTAssertEqual(Consumer<String>.sequence([.discard("foo")]).description, "'foo'")
+        XCTAssertEqual(Consumer<String>.sequence([.replace("foo", "bar")]).description, "'foo'")
         XCTAssertEqual(Consumer<String>.sequence([]).description, "nothing")
     }
 
     func testOptionalAndZeroOrMore() {
-        XCTAssertEqual(Consumer<String>.optional("foo").description, "\"foo\"")
-        XCTAssertEqual(Consumer<String>.zeroOrMore("foo").description, "\"foo\"")
-        XCTAssertEqual(Consumer<String>.zeroOrMore(.optional("foo")).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.optional("foo").description, "'foo'")
+        XCTAssertEqual(Consumer<String>.zeroOrMore("foo").description, "'foo'")
+        XCTAssertEqual(Consumer<String>.zeroOrMore(.optional("foo")).description, "'foo'")
     }
 
     func testFlattenDiscardReplace() {
-        XCTAssertEqual(Consumer<String>.flatten("foo").description, "\"foo\"")
-        XCTAssertEqual(Consumer<String>.discard("foo").description, "\"foo\"")
-        XCTAssertEqual(Consumer<String>.replace("foo", "bar").description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.flatten("foo").description, "'foo'")
+        XCTAssertEqual(Consumer<String>.discard("foo").description, "'foo'")
+        XCTAssertEqual(Consumer<String>.replace("foo", "bar").description, "'foo'")
     }
 
     /// MARK: Match descriptions
 
     func testTokenDescription() {
-        XCTAssertEqual(Consumer<String>.Match.token("foo", .at(0 ..< 3)).description, "\"foo\"")
+        XCTAssertEqual(Consumer<String>.Match.token("foo", .at(0 ..< 3)).description, "'foo'")
         XCTAssertEqual(Consumer<String>.Match.token("a", .at(1 ..< 2)).description, "'a'")
     }
 
     func testNodeDescription() {
-        XCTAssertEqual(Consumer<String>.Match.node(nil, [.token("foo", .at(0 ..< 3))]).description, "(\"foo\")")
+        XCTAssertEqual(Consumer<String>.Match.node(nil, [.token("foo", .at(0 ..< 3))]).description, "('foo')")
         XCTAssertEqual(Consumer<String>.Match.node(nil, []).description, "()")
         XCTAssertEqual(Consumer<String>.Match.node(nil, [
             .token("foo", .at(0 ..< 3)), .token("bar", .at(0 ..< 3)),
-        ]).description, "(\n    \"foo\"\n    \"bar\"\n)")
-        XCTAssertEqual(Consumer<String>.Match.node("foo", [.token("bar", .at(0 ..< 3))]).description, "(foo \"bar\")")
+        ]).description, "(\n    'foo'\n    'bar'\n)")
+        XCTAssertEqual(Consumer<String>.Match.node("foo", [.token("bar", .at(0 ..< 3))]).description, "(foo 'bar')")
         XCTAssertEqual(Consumer<String>.Match.node("foo", []).description, "(foo)")
         XCTAssertEqual(Consumer<String>.Match.node("foo", [
             .token("bar", .at(0 ..< 3)), .token("baz", .at(0 ..< 3)),
-        ]).description, "(foo\n    \"bar\"\n    \"baz\"\n)")
+        ]).description, "(foo\n    'bar'\n    'baz'\n)")
     }
 
     func testNestedNodeDescription() {
@@ -418,8 +422,8 @@ class ConsumerTests: XCTestCase {
             .node("bar", [.token("baz", .at(0 ..< 3)), .token("quux", .at(0 ..< 4))]),
         ]).description, """
         (foo (bar
-            "baz"
-            "quux"
+            'baz'
+            'quux'
         ))
         """)
         XCTAssertEqual(Consumer<String>.Match.node("foo", [
@@ -427,7 +431,7 @@ class ConsumerTests: XCTestCase {
             .node("quux", []),
         ]).description, """
         (foo
-            (bar "baz")
+            (bar 'baz')
             (quux)
         )
         """)

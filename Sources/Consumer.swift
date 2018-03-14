@@ -2,7 +2,7 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.2.4
+//  Version 0.3.0
 //
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
@@ -499,13 +499,13 @@ private extension Consumer {
                 return _match(consumer)
             case let .string(string):
                 let startIndex = index
-                return _skipString(string) ? .token(string,
-                    Location(source: input, range: startIndex ..< index)) : nil
+                return _skipString(string) ? .token(
+                    string, Location(source: input, range: startIndex ..< index)) : nil
             case let .charset(charset):
                 let startIndex = index
                 let string = String(input[startIndex])
-                return _skipCharacter(charset) ? .token(string,
-                    Location(source: input, range: startIndex ..< index)) : nil
+                return _skipCharacter(charset) ? .token(
+                    string, Location(source: input, range: startIndex ..< index)) : nil
             case let .any(consumers):
                 let startIndex = index
                 for consumer in consumers {
@@ -548,7 +548,8 @@ private extension Consumer {
                     var matches = [Match]()
                     while _skipCharacter(charset) {
                         let lastIndex = input.index(before: index)
-                        matches.append(.token(String(input[lastIndex]),
+                        matches.append(.token(
+                            String(input[lastIndex]),
                             Location(source: input, range: lastIndex ..< index)))
                     }
                     return index > startIndex ? .node(nil, matches) : nil
@@ -577,8 +578,8 @@ private extension Consumer {
                 return _skip(consumer) ? .node(nil, []) : nil
             case let .replace(consumer, replacement):
                 let startIndex = index
-                return _skip(consumer) ? .token(replacement,
-                                                Location(source: input, range: startIndex ..< index)) : nil
+                return _skip(consumer) ? .token(
+                    replacement, Location(source: input, range: startIndex ..< index)) : nil
             }
         }
         if let match = _match(self) {
@@ -796,7 +797,7 @@ extension Consumer.Error: CustomStringConvertible {
                 }
             }
         }
-        let offset = self.location.map { " at \($0)" } ?? ""
+        let offset = location.map { " at \($0)" } ?? ""
         switch kind {
         case let .expected(consumer):
             if !token.isEmpty {
@@ -832,46 +833,33 @@ private extension Consumer.Error {
 }
 
 // Human-readable character
-private func escapeCodePoint(_ codePoint: UInt32, inString: Bool = false) -> String {
-    let result: String
-    switch codePoint {
-    case 0:
-        result = "\\0"
-    case 9:
-        result = "\\t"
-    case 10:
-        result = "\\n"
-    case 13:
-        result = "\\r"
-    case 34:
-        result = "\\\""
-    case 39:
-        result = "\\\'"
-    case 0x20 ..< 0x7F:
-        result = String(UnicodeScalar(codePoint)!)
-    default:
+private func escapeCodePoint(_ codePoint: UInt32, inString _: Bool = false) -> String {
+    guard let char = UnicodeScalar(codePoint),
+        !CharacterSet.controlCharacters.contains(char) else {
         let hex = String(codePoint, radix: 16, uppercase: true)
-        if inString {
-            return "\\u{\(hex)}"
-        }
-        let count = 4 - hex.count
-        if count > 0 {
-            return "U+\(String(repeating: "0", count: count))\(hex)"
-        }
-        return "U+\(hex)"
+        return "U+\(String(repeating: "0", count: 4 - hex.count))\(hex)"
     }
-    return inString ? result : "'\(result)'"
+    return escapeString(String(char))
 }
 
 // Human-readable string
 private func escapeString<T: StringProtocol>(_ string: T) -> String {
-    let scalars = string.unicodeScalars
-    if !scalars.isEmpty, scalars.index(after: scalars.startIndex) == scalars.endIndex {
-        return escapeCodePoint(scalars.first!.value)
+    var result = "'"
+    for char in string.unicodeScalars {
+        switch char.value {
+        case 0:
+            result.append("\\0")
+        case 9:
+            result.append("\\t")
+        case 10:
+            result.append("\\n")
+        case 13:
+            result.append("\\r")
+        case let codePoint where CharacterSet.controlCharacters.contains(char):
+            result.append("\\u{\(String(codePoint, radix: 16, uppercase: true))}")
+        default:
+            result.append(Character(char))
+        }
     }
-    var result = "\""
-    for char in scalars {
-        result += escapeCodePoint(char.value, inString: true)
-    }
-    return result.appending("\"")
+    return result + "'"
 }

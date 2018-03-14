@@ -285,7 +285,7 @@ print(result ?? "")
 
 We know that the `integer` consumer will always return an array of string tokens, so we can safely use `as!` in this case to cast `values` to `[String]`. This is not especially elegant, but its the nature of dealing with dynamic data in Swift. Safety purists might prefer to use `as?` and throw an `Error` if the value is not a `[String]`, but that situation could only arise in the event of a programming error - no input data matched by the `integer` consumer we've defined above will ever return anything else.
 
-With the addition of this function, the array of character tokens is transformed into a single string value. The printed result is now simply "1234". That's much better, but it's still a `String`, and we may well want it to be an actual `Int` if we're going to use the value. Since the `transform` function returns `Any?`, we can return any type we want, so let's modify it to return an `Int` instead:
+With the addition of this function, the array of character tokens is transformed into a single string value. The printed result is now simply '1234'. That's much better, but it's still a `String`, and we may well want it to be an actual `Int` if we're going to use the value. Since the `transform` function returns `Any?`, we can return any type we want, so let's modify it to return an `Int` instead:
 
 ```swift
 switch label {
@@ -511,7 +511,7 @@ let integer: Consumer<String> = .label("integer", "0" | [
     .zeroOrMore(.character(in: "0" ... "9")),
 ])
 
-_ = try integer.match("foo") // will throw 'Unexpected token "foo" at 1:1 (expected integer)'
+_ = try integer.match("foo") // will throw 'Unexpected token 'foo' at 1:1 (expected integer)'
 ```
 
 If you are using `String` as your `Label` type then the description will be the literal string value. If you are using an enum (as recommended) then by default the `rawValue` of the label enum will be displayed.
