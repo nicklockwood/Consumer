@@ -1,3 +1,15 @@
+## [0.3.1](https://github.com/nicklockwood/Consumer/releases/tag/0.3.1) (2018-03-15)
+
+- Added `isOptional` property for checking if a given consumer will match empty input
+- Implemented more consistent rules for optionals inside `any`, `sequence` and `oneOrMore` clauses
+- Fixed slow compilation (caused by a Swift compiler bug relating to switch/case exhaustiveness)
+
+## [0.3.0](https://github.com/nicklockwood/Consumer/releases/tag/0.3.0) (2018-03-14)
+
+- Added new `Location` type that provides line and column information for tokens
+- Fixed expected token description reported when matching fails
+- Removed deprecated methods
+
 ## [0.2.4](https://github.com/nicklockwood/Consumer/releases/tag/0.2.4) (2018-03-11)
 
 - Fixed bug where error was reported at the wrong source offset 

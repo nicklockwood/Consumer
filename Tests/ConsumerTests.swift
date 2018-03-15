@@ -491,7 +491,7 @@ class ConsumerTests: XCTestCase {
         let parser: Consumer<String> = .oneOrMore(.replace(.optional("foo"), "bar"))
         XCTAssertEqual(try parser.match(""), .node(nil, [.token("bar", .at(0 ..< 0))]))
         XCTAssertEqual(try parser.match("foo"), .node(nil, [
-            .token("bar", .at(0 ..< 3)), .token("bar", .at(3 ..< 3))
+            .token("bar", .at(0 ..< 3)), .token("bar", .at(3 ..< 3)),
         ]))
         XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
             .token("bar", .at(0 ..< 3)), .token("bar", .at(3 ..< 6)), .token("bar", .at(6 ..< 6)),
@@ -500,7 +500,7 @@ class ConsumerTests: XCTestCase {
 
     func testFlattenOneOrMoreReplaceOptionals() {
         let parser: Consumer<String> = .flatten(.oneOrMore(.replace(.optional("foo"), "bar")))
-        XCTAssertEqual(try parser.match(""),  .token("bar", .at(0 ..< 0)))
+        XCTAssertEqual(try parser.match(""), .token("bar", .at(0 ..< 0)))
         XCTAssertEqual(try parser.match("foo"), .token("barbar", .at(0 ..< 3)))
         XCTAssertEqual(try parser.match("foofoo"), .token("barbarbar", .at(0 ..< 6)))
     }
@@ -545,7 +545,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(try parser.match("foo"), .node(nil, [.token("foo", .at(0 ..< 3))]))
         XCTAssertEqual(try parser.match("bar"), .node(nil, [.token("bar", .at(0 ..< 3))]))
         XCTAssertEqual(try parser.match("foobar"), .node(nil, [
-            .token("foo", .at(0 ..< 3)), .token("bar", .at(3 ..< 6))
+            .token("foo", .at(0 ..< 3)), .token("bar", .at(3 ..< 6)),
         ]))
     }
 

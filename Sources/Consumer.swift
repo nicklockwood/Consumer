@@ -2,7 +2,7 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.3.0
+//  Version 0.3.1
 //
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
@@ -609,12 +609,9 @@ extension Consumer.Location: CustomStringConvertible {
     }
 
     // Convenience constructor, used for testing
-    static func at(_ range: CountableRange<Int>) -> Consumer.Location {
+    public static func at(_ range: CountableRange<Int>) -> Consumer.Location {
         let source = String(repeating: " ", count: range.upperBound).unicodeScalars
-        let range = source.index(
-            source.startIndex,
-            offsetBy: range.lowerBound
-        ) ..< source.endIndex
+        let range = source.index(source.startIndex, offsetBy: range.lowerBound) ..< source.endIndex
         return Consumer.Location(source: source, range: range)
     }
 }
@@ -650,7 +647,7 @@ public extension Consumer.Charset {
         return lhs.inverted == rhs.inverted && lhs.characterSet == rhs.characterSet
     }
 
-    // Note: this calculation is really expensive
+    // Note: this can be expensive to calculate
     var ranges: [CountableClosedRange<UInt32>] {
         var ranges = [CountableClosedRange<UInt32>]()
         let bitmap: Data = characterSet.bitmapRepresentation
