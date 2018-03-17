@@ -442,6 +442,123 @@ class ConsumerTests: XCTestCase {
         """)
     }
 
+    /// MARK: isOptional
+
+    func testStringIsNotOptional() {
+        let parser: Consumer<String> = .string("abc")
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testEmptyStringIsOptional() {
+        let parser: Consumer<String> = .string("")
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testCharsetIsNotOptional() {
+        let parser: Consumer<String> = .character("a")
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testEmptyCharsetIsNotOptional() {
+        let parser: Consumer<String> = .character(in: CharacterSet(charactersIn: ""))
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testAnyNonOptionalIsNotOptional() {
+        let parser: Consumer<String> = .any(["foo", "bar"])
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testAnyWithOneOptionalIsOptional() {
+        let parser: Consumer<String> = .any([.optional("foo"), "bar"])
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testEmptyAnyIsOptional() {
+        let parser: Consumer<String> = .any([])
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testSequenceWithOneIsOptionalIsNotOptional() {
+        let parser: Consumer<String> = .sequence([.optional("foo"), "bar"])
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testSequenceWithAllOptionalIsOptional() {
+        let parser: Consumer<String> = .sequence([.optional("foo"), .optional("bar")])
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testEmptySequenceIsOptional() {
+        let parser: Consumer<String> = .sequence([])
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testOptionalIsOptional() {
+        let parser: Consumer<String> = .optional("foo")
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testOneOrMoreNonOptionalIsNotOptional() {
+        let parser: Consumer<String> = .oneOrMore("foo")
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testOneOrMoreOptionalIsOptional() {
+        let parser: Consumer<String> = .oneOrMore(.optional("foo"))
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testFlattenNonOptionalIsNotOptional() {
+        let parser: Consumer<String> = .flatten("foo")
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testFlattenOptionalIsOptional() {
+        let parser: Consumer<String> = .flatten(.optional("foo"))
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testDiscardNonOptionalIsNotOptional() {
+        let parser: Consumer<String> = .discard("foo")
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testDiscardOptionalIsOptional() {
+        let parser: Consumer<String> = .discard(.optional("foo"))
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testReplaceNonOptionalIsNotOptional() {
+        let parser: Consumer<String> = .replace("foo", "bar")
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testReplaceOptionalIsOptional() {
+        let parser: Consumer<String> = .replace(.optional("foo"), "bar")
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testLabelNonOptionalIsNotOptional() {
+        let parser: Consumer<String> = .label("foo", "bar")
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testLabelOptionalIsOptional() {
+        let parser: Consumer<String> = .label("foo", .optional("bar"))
+        XCTAssertTrue(parser.isOptional)
+    }
+
+    func testReferenceNonOptionalIsNotOptional() {
+        let parser: Consumer<String> = .label("foo", .oneOrMore(.reference("foo") | .string("bar")))
+        XCTAssertFalse(parser.isOptional)
+    }
+
+    func testReferenceOptionalIsOptional() {
+        let parser: Consumer<String> = .label("foo", .oneOrMore(.reference("foo") | .optional(.string("bar"))))
+        XCTAssertTrue(parser.isOptional)
+    }
+
     /// MARK: Edge cases with optionals
 
     func testReplaceOptional() {

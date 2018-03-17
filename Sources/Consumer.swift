@@ -307,14 +307,14 @@ private extension Consumer {
             return false
         case let .label(_, consumer):
             return consumer._isOptional
+        case .optional, .string(""):
+            return true
         case .string, .charset:
             return false
         case let .any(consumers):
             return consumers.isEmpty || consumers.contains { $0._isOptional }
         case let .sequence(consumers):
             return consumers.isEmpty || !consumers.contains { !$0._isOptional }
-        case .optional:
-            return true
         case let .oneOrMore(consumer),
              let .flatten(consumer),
              let .discard(consumer),
