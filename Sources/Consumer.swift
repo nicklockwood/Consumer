@@ -830,7 +830,7 @@ private extension Consumer.Error {
 
 // Human-readable character
 private func escapeCodePoint(_ codePoint: UInt32, inString _: Bool = false) -> String {
-    guard let char = UnicodeScalar(codePoint),
+    guard let char = UnicodeScalar(codePoint), [0, 9, 10, 13].contains(codePoint) ||
         !CharacterSet.controlCharacters.contains(char) else {
         let hex = String(codePoint, radix: 16, uppercase: true)
         return "U+\(String(repeating: "0", count: 4 - hex.count))\(hex)"
@@ -843,14 +843,10 @@ private func escapeString<T: StringProtocol>(_ string: T) -> String {
     var result = "'"
     for char in string.unicodeScalars {
         switch char.value {
-        case 0:
-            result.append("\\0")
-        case 9:
-            result.append("\\t")
-        case 10:
-            result.append("\\n")
-        case 13:
-            result.append("\\r")
+        case 0: result.append("\\0")
+        case 9: result.append("\\t")
+        case 10: result.append("\\n")
+        case 13: result.append("\\r")
         case let codePoint where CharacterSet.controlCharacters.contains(char):
             result.append("\\u{\(String(codePoint, radix: 16, uppercase: true))}")
         default:
