@@ -19,6 +19,7 @@
     - [Typed Labels](#typed-labels)
     - [Forward References](#forward-references)
     - [Syntax Sugar](#syntax-sugar)
+    - [White Space](#white-space)
     - [Error Handling](#error-handling)
 - [Performance](#performance)
     - [Backtracking](#backtracking)
@@ -491,6 +492,47 @@ let fooOrbar: Consumer<String> = "foo" | "bar"
 
 Be careful when using the `|` operator for very complex expressions however, as it can cause Swift's compile time to go up exponentially due to the complexity of type inference. It's best to only use `|` for a small number of cases. If it's more than 4 or 5, or if it's deeply nested inside a complex expression, you should probably use `any()` instead.
 
+## White Space
+
+Consumer makes no assumptions about the nature of the text that you are parsing, so it does not have any built-in distinction between meaningful content and white space (spaces or linebreaks between tokens).
+
+In practice, many programming languages and structured data files have a policy of ignoring (or mostly ignoring) white space between tokens, so what's the best way to do that?
+
+First, define the grammar for your language, excluding any consideration of white space. For example, here is a simple consumer that matches a comma-delimited list of integers:
+
+```swift
+let integer: Consumer<MyLabel> = .flatten("0" | [.character(in: "1" ... "9"), .zeroOrMore(.character(in: "0" ... "9"))])
+let list: Consumer<MyLabel> = .interleaved(integer, .discard(","))
+```
+
+Currently, this will match a number sequence like "12,0,5,78", but if we include spaces between the numbers it will fail. So next we need to define a consumer for matching white space:
+
+```swift
+let space: Consumer<MyLabel> = .discard(.zeroOrMore(.character(in: " \t\r\n")))
+```
+
+This consumer will match (and discard) any sequence of space, tab, carriage return or linefeed characters. Using the `space` rule, we could manually modify our `list` pattern to ignore spaces as follows:
+
+```swift
+let list: Consumer<MyLabel> = [space, .interleaved(integer, .discard([space, ",", space])), space]
+```
+
+This should work, but manually inserting spaces between every rule in the grammar like this is pretty tedious. It also makes the grammar harder to follow, and it's easy to miss a space accidentally.
+
+To simplify dealing with white space, Consumer has a convenience constructor called `ignore()` that allows you to automatically ignore a given pattern when matching. We can use `ignore()` to combine our original `list` rule with the `space` rule as follows:
+
+```swift
+let list: Consumer<MyLabel> = .ignore(space, in: .interleaved(integer, .discard(",")))
+```
+
+This results in a consumer that is functionally equivalent to the manually spaced list that we created above, but with much less code.
+
+The `ignore()` constructor is powerful, but because it is applied recursively to the entire consumer hierarchy, you need to be careful not to ignore white space in places that you don't want to allow it. For example, we wouldn't want to allow white space *inside* an individual token, such as the integer literal in our example.
+
+Individual tokens in a grammar are typically returned as a single string value by using the [flatten transform](#standard-transforms). The `ignore()` constructor won't modify consumers inside `flatten`, so the `integer` token from our example is actually not affected.
+
+For more complex grammars, you may not be able to use `ignore()`, or may only be able to use it on certain sub-trees of the overall consumer, instead of the entire thing. For example, in the [JSON example](#json) included with the Consumer library, string literals can contain escaped unicode character literals that must be transformed using the transform function. That means that JSON string literals can't be flattened, which also means that the JSON grammar can't use `ignore()` for handling white space, otherwise the grammar would ignore white space inside strings, which would mess up the parsing.
+
 ## Error Handling
 
 There are two types of error that can occur in Consumer: parsing errors and transform errors.
@@ -642,7 +684,7 @@ We mentioned the `flatten` and `discard` transforms in the [Common Transforms](#
 
 But using "flatten" and "discard" can also improve performance, by simplifying the parsing process, and avoiding the need to gather and propagate unnecessary information like source offsets.
 
-If you intend to eventually flatten a given node of your matched results, it's  much better to do this within the consumer itself by using the `flatten` rule than by using `joined()` in your transform function. The only time when you won't be able to do this is if some of the child consumers need custom transforms to be applied, because by flattening the node tree you remove the labels that are needed to reference the node in your transform.
+If you intend to eventually flatten a given node of your matched results, it's  much better to do this within the consumer itself by using the `flatten` rule than by using `Array.joined()` in your transform function. The only time when you won't be able to do this is if some of the child consumers need custom transforms to be applied, because by flattening the node tree you remove the labels that are needed to reference the node in your transform.
 
 Similarly, for unneeded match results (e.g. commas, brackets and other punctuation that isn't required after parsing) you should always use `discard` to remove the node or token from the match results before applying a transform.
 

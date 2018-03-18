@@ -246,6 +246,39 @@ class ConsumerTests: XCTestCase {
         XCTAssertThrowsError(try parser.match(""))
     }
 
+    func testIgnoreInSequenceAndAny() {
+        let space: Consumer<String> = .discard(.zeroOrMore(.character(in: .whitespaces)))
+        let parser: Consumer<String> = .ignore(space, in: ["a" | "b", "=", "c"])
+        XCTAssertEqual(try parser.match("a=c"), .node(nil, [
+            .token("a", .at(0 ..< 1)), .token("=", .at(1 ..< 2)), .token("c", .at(2 ..< 3))
+        ]))
+        XCTAssertEqual(try parser.match(" b = c "), .node(nil, [
+            .token("b", .at(1 ..< 2)), .token("=", .at(3 ..< 4)), .token("c", .at(5 ..< 6))
+        ]))
+        XCTAssertEqual(try parser.match("a  = c"), .node(nil, [
+            .token("a", .at(0 ..< 1)), .token("=", .at(3 ..< 4)), .token("c", .at(5 ..< 6))
+        ]))
+    }
+
+    func testIgnoreInOneOrMoreAndOptional() {
+        let space: Consumer<String> = .discard(.zeroOrMore(.character(in: .whitespaces)))
+        let parser: Consumer<String> = .ignore(space, in: .zeroOrMore("foo"))
+        XCTAssertEqual(try parser.match("foofoo"), .node(nil, [
+            .token("foo", .at(0 ..< 3)), .token("foo", .at(3 ..< 6)),
+        ]))
+        XCTAssertEqual(try parser.match(" foo foo "), .node(nil, [
+            .token("foo", .at(1 ..< 4)), .token("foo", .at(5 ..< 8)),
+        ]))
+        XCTAssertEqual(try parser.match(" "), .node(nil, []))
+    }
+
+    func testNoIgnoreInFlatten() {
+        let space: Consumer<String> = .discard(.zeroOrMore(.character(in: .whitespaces)))
+        let parser: Consumer<String> = .ignore(space, in: .flatten(.oneOrMore(.character(in: "a" ... "z"))))
+        XCTAssertEqual(try parser.match(" abc "), .node(nil, [.token("abc", .at(1 ..< 4))]))
+        XCTAssertThrowsError(try parser.match("ab c"))
+    }
+
     /// MARK: Errors
 
     func testUnmatchedInput() {

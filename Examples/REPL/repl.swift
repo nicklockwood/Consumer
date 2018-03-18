@@ -114,28 +114,25 @@ private let alphanumeric: Consumer<Label> = .character(in: .alphanumerics)
 private let identifier: Consumer<Label> = .flatten([alpha, .zeroOrMore(alphanumeric)])
 
 // rvalues
-private let space: Consumer<Label> = .discard(.zeroOrMore(.character(in: .whitespacesAndNewlines)))
 private let literal: Consumer<Label> = number | bool | string
 private let variable: Consumer<Label> = .label(.variable, identifier)
 private let subexpression: Consumer<Label> = [
-    space, .discard("("), space,
-    .reference(.expression),
-    space, .discard(")"), space,
+    .discard("("), .reference(.expression), .discard(")"),
 ]
 private let factor: Consumer<Label> = .label(.factor, [
-    .optional("-"), space,
-    literal | variable | subexpression,
+    .optional("-"), literal | variable | subexpression,
 ])
 private let term: Consumer<Label> = .label(.term, [
-    factor, space, .optional(["*" | "/", space, .reference(.term)]),
+    factor, .optional(["*" | "/", .reference(.term)]),
 ])
 private let expression: Consumer<Label> = .label(.expression, [
-    term, space, .optional(["+" | "-", space, .reference(.expression)]),
+    term, .optional(["+" | "-", .reference(.expression)]),
 ])
 
 // assignment
 private let assignment: Consumer<Label> = .label(.assignment, [
-    identifier, space, .discard("="), space, expression,
+    identifier, .discard("="), expression,
 ])
 
-private let repl: Consumer<Label> = .label(.repl, [space, assignment | expression, space])
+private let space: Consumer<Label> = .discard(.zeroOrMore(.character(in: .whitespacesAndNewlines)))
+private let repl: Consumer<Label> = .label(.repl, .ignore(space, in: assignment | expression))

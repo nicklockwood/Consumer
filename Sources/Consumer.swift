@@ -190,14 +190,22 @@ public extension Consumer {
 /// MARK: Composite rules
 
 public extension Consumer {
-    /// Matches a list of one or more of the specified consumer
+    /// Matches a list of zero or more `consumer` instances
     static func zeroOrMore(_ consumer: Consumer) -> Consumer {
         return .optional(.oneOrMore(consumer))
     }
 
-    /// Matches one or more of the specified consumer, interleaved with a separator
+    /// Matches one or more `consumer` instances, separated an instance of `separator`
+    /// This is useful for something like a comma-delimited list (without a trailing comma)
     static func interleaved(_ consumer: Consumer, _ separator: Consumer) -> Consumer {
         return .sequence([.zeroOrMore(.sequence([consumer, separator])), consumer])
+    }
+
+    /// Matches the `target` consumer, ignoring any instances of the `ignored` consumer
+    /// This is useful for something like ignoring whitespace between tokens
+    /// Note: Instances of `ignored` inside `flatten` clauses will not be ignored
+    static func ignore(_ ignored: Consumer, in target: Consumer) -> Consumer {
+        return .sequence([ignored, target._ignoring(ignored), ignored])
     }
 }
 
@@ -591,6 +599,35 @@ private extension Consumer {
             return match
         } else {
             throw Error(.expected(expected ?? self), at: bestIndex, in: input)
+        }
+    }
+
+    func _ignoring(_ ignored: Consumer) -> Consumer {
+        switch self {
+        case .string, .charset, .flatten, .reference:
+            return self
+        case let .optional(consumer):
+            return .optional(consumer._ignoring(ignored))
+        case let .discard(consumer):
+            return .discard(consumer._ignoring(ignored))
+        case let .replace(consumer, replacement):
+            return .replace(consumer._ignoring(ignored), replacement)
+        case let .label(name, consumer):
+            return .label(name, consumer._ignoring(ignored))
+        case let .any(consumers):
+            return .any(consumers.map { $0._ignoring(ignored) })
+        case let .sequence(consumers):
+            var result = [Consumer]()
+            if let first = consumers.first {
+                result.append(first._ignoring(ignored))
+                for consumer in consumers.dropFirst() {
+                    result.append(ignored)
+                    result.append(consumer._ignoring(ignored))
+                }
+            }
+            return .sequence(result)
+        case let .oneOrMore(consumer):
+            return .oneOrMore([consumer._ignoring(ignored), ignored])
         }
     }
 }
