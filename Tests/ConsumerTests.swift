@@ -102,6 +102,18 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(try parser.match("abc"), .node(nil, [.token("a", .at(0 ..< 1)), .token("b", .at(1 ..< 2)), .token("c", .at(2 ..< 3))]))
     }
 
+    func testNot() {
+        let parser: Consumer<String> = .not("foo")
+        XCTAssertEqual(try parser.match(""), .node(nil, []))
+        XCTAssertThrowsError(try parser.match("foo"))
+    }
+
+    func testNot2() {
+        let parser: Consumer<String> = .flatten(["/*", .zeroOrMore([.not("*/"), .anyCharacter()]), "*/"])
+        XCTAssertEqual(try parser.match("/* abc */"), .token("/* abc */", .at(0 ..< 9)))
+        XCTAssertEqual(try parser.match("/*******/"), .token("/*******/", .at(0 ..< 9)))
+    }
+
     /// MARK: Standard transforms
 
     func testFlattenOptional() {

@@ -533,6 +533,29 @@ Individual tokens in a grammar are typically returned as a single string value b
 
 For more complex grammars, you may not be able to use `ignore()`, or may only be able to use it on certain sub-trees of the overall consumer, instead of the entire thing. For example, in the [JSON example](#json) included with the Consumer library, string literals can contain escaped unicode character literals that must be transformed using the transform function. That means that JSON string literals can't be flattened, which also means that the JSON grammar can't use `ignore()` for handling white space, otherwise the grammar would ignore white space inside strings, which would mess up the parsing.
 
+**Note:** `ignore()` can be used to ignore any kind of input, not just white space. Also, while the input is ignored from the point of view of the grammar, it doesn't have to be discarded in the output. If you were writing a code linter or formatter you might want to preserve the white space from the original source. To do that, you would remove the `discard()` clause from inside your white space rule:
+
+```swift
+let space: Consumer<MyLabel> = .zeroOrMore(.character(in: " \t\r\n"))
+```
+
+In some languages, such as Swift or JavaScript, spaces are mostly ignored but linebreaks have semantic significance. For such cases you might ignore only spaces but not linebreaks, or you might ignore both but only *discard* the spaces, so you can process the linebreaks manually in your transform function:
+
+```swift
+let space: Consumer<MyLabel> = .zeroOrMore(.discard(.character(in: " \t")) | .character(in: "\r\n"))
+```
+
+It's also common in programming languages to allow *comments*, which typically have no semantic meaning and can appear anywhere that white space is permitted. You can ignore comments in the same way you'd ignore spaces:
+
+```swift
+let space: Consumer<MyLabel> = .character(in: " \t\r\n")
+let comment: Consumer<MyLabel> = ["/*", .zeroOrMore([.not("*/"), .anyCharacter()]), "*/"]
+let spaceOrComment: Consumer<MyLabel> = .discard(.zeroOrMore(space | comment))
+
+let program: Consumer<MyLabel> = .ignore(spaceOrComment, in: ...)
+```
+
+
 ## Error Handling
 
 There are two types of error that can occur in Consumer: parsing errors and transform errors.

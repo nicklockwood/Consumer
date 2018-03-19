@@ -45,6 +45,7 @@ public indirect enum Consumer<Label: Hashable>: Equatable {
     case sequence([Consumer])
     case optional(Consumer)
     case oneOrMore(Consumer)
+    case not(Consumer)
 
     /// Transforms
     case flatten(Consumer)
@@ -272,6 +273,8 @@ extension Consumer: CustomStringConvertible {
         case let .optional(consumer),
              let .oneOrMore(consumer):
             return consumer.description
+        case let .not(consumer):
+            return "not \(consumer)"
         case let .flatten(consumer),
              let .discard(consumer),
              let .replace(consumer, _):
@@ -315,7 +318,9 @@ private extension Consumer {
             return false
         case let .label(_, consumer):
             return consumer._isOptional
-        case .optional, .string(""):
+        case .not(""):
+            return false
+        case .optional, .string(""), .not:
             return true
         case .string, .charset:
             return false
@@ -414,6 +419,13 @@ private extension Consumer {
                     }
                 }
                 return index > startIndex
+            case let .not(consumer):
+                let startIndex = index
+                if _skip(consumer) {
+                    index = startIndex
+                    return false
+                }
+                return true
             case let .flatten(consumer),
                  let .discard(consumer),
                  let .replace(consumer, _):
@@ -482,6 +494,13 @@ private extension Consumer {
                     lastIndex = index
                 }
                 return index > startIndex ? result : nil
+            case let .not(consumer):
+                let startIndex = index
+                if _skip(consumer) {
+                    index = startIndex
+                    return nil
+                }
+                return ""
             case let .flatten(consumer):
                 return _flatten(consumer)
             case let .discard(consumer):
@@ -576,6 +595,13 @@ private extension Consumer {
                     matched = true
                 }
                 return matched ? .node(nil, matches) : nil
+            case let .not(consumer):
+                let startIndex = index
+                if _skip(consumer) {
+                    index = startIndex
+                    return nil
+                }
+                return  .node(nil, [])
             case let .flatten(consumer):
                 let startIndex = index
                 return _flatten(consumer).map {
@@ -628,6 +654,8 @@ private extension Consumer {
             return .sequence(result)
         case let .oneOrMore(consumer):
             return .oneOrMore([consumer._ignoring(ignored), ignored])
+        case let .not(consumer):
+            return .not(consumer._ignoring(ignored))
         }
     }
 }
