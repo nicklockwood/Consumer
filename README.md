@@ -734,4 +734,4 @@ foo = (5 + 6) + 7
 
 The named variable ("foo", in this case) is then available to use in subsequent expressions.
 
-This example demonstrates a number of advanced techniques, such as mutually recursive consumer rules and operator precedence.
+This example demonstrates a number of advanced techniques such as mutually recursive consumer rules, operator precedence, and negative lookahead using `not()`

@@ -2,7 +2,7 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.3.1
+//  Version 0.3.2
 //
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
@@ -601,7 +601,7 @@ private extension Consumer {
                     index = startIndex
                     return nil
                 }
-                return  .node(nil, [])
+                return .node(nil, [])
             case let .flatten(consumer):
                 let startIndex = index
                 return _flatten(consumer).map {

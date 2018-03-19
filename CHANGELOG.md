@@ -1,3 +1,9 @@
+## [0.3.2](https://github.com/nicklockwood/Consumer/releases/tag/0.3.2) (2018-03-19)
+
+- Added `not()` consumer, required for matching patterns like C-style /* ... */ comments
+- Added `ignore()` constructor for conveniently ignoring white space or comments between tokens
+- Improved description for `charset` consumer
+
 ## [0.3.1](https://github.com/nicklockwood/Consumer/releases/tag/0.3.1) (2018-03-15)
 
 - Added `isOptional` property for checking if a given consumer will match empty input

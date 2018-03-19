@@ -262,13 +262,13 @@ class ConsumerTests: XCTestCase {
         let space: Consumer<String> = .discard(.zeroOrMore(.character(in: .whitespaces)))
         let parser: Consumer<String> = .ignore(space, in: ["a" | "b", "=", "c"])
         XCTAssertEqual(try parser.match("a=c"), .node(nil, [
-            .token("a", .at(0 ..< 1)), .token("=", .at(1 ..< 2)), .token("c", .at(2 ..< 3))
+            .token("a", .at(0 ..< 1)), .token("=", .at(1 ..< 2)), .token("c", .at(2 ..< 3)),
         ]))
         XCTAssertEqual(try parser.match(" b = c "), .node(nil, [
-            .token("b", .at(1 ..< 2)), .token("=", .at(3 ..< 4)), .token("c", .at(5 ..< 6))
+            .token("b", .at(1 ..< 2)), .token("=", .at(3 ..< 4)), .token("c", .at(5 ..< 6)),
         ]))
         XCTAssertEqual(try parser.match("a  = c"), .node(nil, [
-            .token("a", .at(0 ..< 1)), .token("=", .at(3 ..< 4)), .token("c", .at(5 ..< 6))
+            .token("a", .at(0 ..< 1)), .token("=", .at(3 ..< 4)), .token("c", .at(5 ..< 6)),
         ]))
     }
 
@@ -767,5 +767,22 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(try parser.match("barfoo"), .node(nil, [
             .token("bar", .at(0 ..< 3)), .token("foo", .at(3 ..< 6)),
         ]))
+    }
+
+    // MARK: Transforms
+
+    func testStringTransform() {
+        let parser: Consumer<String> = "foo"
+        XCTAssertEqual(try parser.match("foo").transform { _, _ in XCTFail(); return () } as? String, "foo")
+    }
+
+    func testLabelledStringTransform() {
+        let parser: Consumer<String> = .label("foo", "foo")
+        XCTAssertEqual(try parser.match("foo").transform { $1[0] } as? String, "foo")
+    }
+
+    func testLabelledListTransform() {
+        let parser: Consumer<String> = .oneOrMore("foo")
+        XCTAssertEqual(try parser.match("foofoo").transform { $1 } as! [String], ["foo", "foo"])
     }
 }

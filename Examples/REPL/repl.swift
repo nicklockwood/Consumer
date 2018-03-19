@@ -15,7 +15,7 @@ public class State {
 }
 
 public func evaluate(_ input: String, state: State) throws -> Any? {
-    let match = try repl.match(input)
+    let match = try command.match(input)
     return match.transform { label, values in
         switch label {
         case .bool:
@@ -63,7 +63,7 @@ public func evaluate(_ input: String, state: State) throws -> Any? {
             let rhs = values[1]
             state.variables[lhs] = rhs
             return rhs
-        case .repl:
+        case .command:
             return values[0]
         }
     }
@@ -80,7 +80,7 @@ private enum Label: String {
     case term
     case expression
     case assignment
-    case repl
+    case command
 }
 
 // boolean
@@ -134,5 +134,12 @@ private let assignment: Consumer<Label> = .label(.assignment, [
     identifier, .discard("="), expression,
 ])
 
-private let space: Consumer<Label> = .discard(.zeroOrMore(.character(in: .whitespacesAndNewlines)))
-private let repl: Consumer<Label> = .label(.repl, .ignore(space, in: assignment | expression))
+// comments and white space
+private let space: Consumer<Label> = .character(in: .whitespacesAndNewlines)
+private let comment1: Consumer<Label> = ["//", .zeroOrMore(.anyCharacter(except: "\r", "\n"))]
+private let comment2: Consumer<Label> = ["/*", .zeroOrMore([.not("*/"), .anyCharacter()]), "*/"]
+private let spaceOrComment: Consumer<Label> = .discard(.zeroOrMore(space | comment1 | comment2))
+
+// root
+private let command: Consumer<Label> =
+    .label(.command, .ignore(spaceOrComment, in: assignment | expression))
