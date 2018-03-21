@@ -408,7 +408,9 @@ private extension Consumer {
                 let startIndex = index
                 switch consumer {
                 case let .charset(charset):
-                    while _skipCharacter(charset) {}
+                    while index < input.endIndex, charset._contains(input[index]) {
+                        index = input.index(after: index)
+                    }
                 default:
                     var lastIndex = index
                     while _skip(consumer) {
@@ -481,7 +483,9 @@ private extension Consumer {
             case let .oneOrMore(consumer):
                 let startIndex = index
                 if case let .charset(charset) = consumer {
-                    while _skipCharacter(charset) {}
+                    while index < input.endIndex, charset._contains(input[index]) {
+                        index = input.index(after: index)
+                    }
                     return index > startIndex ? String(input[startIndex ..< index]) : nil
                 }
                 var result = ""

@@ -54,6 +54,7 @@ private let hexdigit: Consumer<Label> = digit | .character(in: "a" ... "f") | .c
 private let string: Consumer<Label> = .label(.string, [
     .discard("\""),
     .zeroOrMore(.any([
+        .flatten(.oneOrMore(.anyCharacter(except: "\"", "\\"))),
         [.discard("\\"), .any([
             "\"", "\\", "/",
             .replace("b", "\u{8}"),
@@ -65,7 +66,6 @@ private let string: Consumer<Label> = .label(.string, [
                 .discard("u"), hexdigit, hexdigit, hexdigit, hexdigit,
             ])),
         ])],
-        .flatten(.oneOrMore(.anyCharacter(except: "\"", "\\"))),
     ])),
     .discard("\""),
 ])
