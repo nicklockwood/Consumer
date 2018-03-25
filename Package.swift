@@ -2,5 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "Consumer"
+    name: "Consumer",
+    products: [
+        .library(name: "Consumer", targets: ["Consumer"])
+    ],
+    targets: [
+        .target(name: "Consumer", path: "Sources")
+    ]
 )
