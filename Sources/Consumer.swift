@@ -76,7 +76,7 @@ public extension Consumer {
     }
 
     /// Abstract syntax tree returned by consumer
-    indirect enum Match: Equatable {
+    public indirect enum Match: Equatable {
         case token(String, Location)
         case node(Label?, [Match])
 
@@ -84,7 +84,7 @@ public extension Consumer {
         public var location: Location? { return _location }
 
         /// Transform generic AST to application-specific form
-        func transform(_ fn: Transform) rethrows -> Any? {
+        public func transform(_ fn: Transform) rethrows -> Any? {
             return try _transform(fn)
         }
     }
@@ -96,7 +96,7 @@ public extension Consumer {
     }
 
     /// Closure for transforming a Match to an application-specific data type
-    typealias Transform = (_ name: Label, _ values: [Any]) throws -> Any?
+    public typealias Transform = (_ name: Label, _ values: [Any]) throws -> Any?
 
     /// A Parsing error
     struct Error: Swift.Error {
