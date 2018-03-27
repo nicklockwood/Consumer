@@ -84,7 +84,7 @@ public extension Consumer {
         public var location: Location? { return _location }
 
         /// Transform generic AST to application-specific form
-        func transform(_ fn: Transform) rethrows -> Any? {
+        public func transform(_ fn: Transform) rethrows -> Any? {
             return try _transform(fn)
         }
     }
