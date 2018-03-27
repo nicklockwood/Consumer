@@ -2,7 +2,7 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.3.2
+//  Version 0.3.3
 //
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
@@ -90,7 +90,7 @@ public extension Consumer {
     }
 
     /// Opaque type used for efficient character matching
-    public struct Charset: Hashable {
+    struct Charset: Hashable {
         fileprivate let characterSet: CharacterSet
         let inverted: Bool
     }

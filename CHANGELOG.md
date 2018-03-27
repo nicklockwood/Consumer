@@ -1,3 +1,9 @@
+## [0.3.3](https://github.com/nicklockwood/Consumer/releases/tag/0.3.3) (2018-03-28)
+
+- Made `Match.transform()` function public (it was inadvertently left with module scope)
+- Improved performance when parsing `oneOrMore(charset)` patterns
+- Fixed Swift Package Manager integration
+
 ## [0.3.2](https://github.com/nicklockwood/Consumer/releases/tag/0.3.2) (2018-03-19)
 
 - Added `not()` consumer, required for matching patterns like C-style /* ... */ comments
