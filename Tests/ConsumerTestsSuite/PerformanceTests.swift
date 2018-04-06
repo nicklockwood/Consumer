@@ -29,6 +29,7 @@
 //  SOFTWARE.
 //
 
+@testable import Consumer
 import Foundation
 import XCTest
 
