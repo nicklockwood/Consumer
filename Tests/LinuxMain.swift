@@ -1,4 +1,5 @@
-@testable import ConsumerTestsSuite
+@testable import ConsumerTests
+@testable import PerformanceTests
 
 import XCTest
 
