@@ -230,7 +230,11 @@ public func parseJSON2(_ input: String) throws -> Any {
 
     func json() throws -> Any? {
         skipWhitespace()
-        if let value = try boolean() ?? null() ?? number() ?? string() ?? object() ?? array() {
+        if let value = try boolean() ?? null() ?? number() {
+            skipWhitespace()
+            return value
+        }
+        if let value = try string() ?? object() ?? array() {
             skipWhitespace()
             return value
         }

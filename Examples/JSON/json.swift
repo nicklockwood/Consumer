@@ -46,9 +46,13 @@ private let boolean: Consumer<Label> = .label(.boolean, "true" | "false")
 private let digit: Consumer<Label> = .character(in: "0" ... "9")
 private let number: Consumer<Label> = .label(.number, .flatten([
     .optional("-"),
-    "0" | [.character(in: "1" ... "9"), .zeroOrMore(digit)],
+    .any(["0", [.character(in: "1" ... "9"), .zeroOrMore(digit)]]),
     .optional([".", .oneOrMore(digit)]),
-    .optional(["e" | "E", .optional("+" | "-"), .oneOrMore(digit)]),
+    .optional([
+        .character(in: "eE"),
+        .optional(.character(in: "+-")),
+        .oneOrMore(digit),
+    ]),
 ]))
 private let hexdigit: Consumer<Label> = digit | .character(in: "a" ... "f") | .character(in: "A" ... "F")
 private let string: Consumer<Label> = .label(.string, [

@@ -1,3 +1,7 @@
+## [0.3.4](https://github.com/nicklockwood/Consumer/releases/tag/0.3.4) (2018-04-22)
+
+- Fixed deprecation warning in Swift 4.1
+
 ## [0.3.3](https://github.com/nicklockwood/Consumer/releases/tag/0.3.3) (2018-03-28)
 
 - Made `Match.transform()` function public (it was inadvertently left with module scope)

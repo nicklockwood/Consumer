@@ -2,7 +2,7 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.3.3
+//  Version 0.3.4
 //
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
@@ -834,7 +834,9 @@ private extension Consumer.Match {
             case let .token(string, _):
                 return String(string)
             case let .node(name, matches):
-                let values = try Array(matches.flatMap { try $0.transform(fn) })
+                let values = try matches.flatMap {
+                    try $0.transform(fn).map { [$0] } ?? []
+                }
                 return try name.map { try fn($0, values) } ?? values
             }
         } catch let error as Consumer.Error {
