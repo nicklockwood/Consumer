@@ -33,7 +33,6 @@ import Foundation
 import XCTest
 
 class PerformanceTests: XCTestCase {
-
     // MARK: Descriptions
 
     func testEmojiCharacterDescription() {

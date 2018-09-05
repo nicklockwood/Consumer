@@ -1,3 +1,8 @@
+## [0.3.5](https://github.com/nicklockwood/Consumer/releases/tag/0.3.5) (2018-09-05)
+
+- Fixed out-of-bounds crash when matching empty input against a charset
+- Fixed bug in character set range conversion
+
 ## [0.3.4](https://github.com/nicklockwood/Consumer/releases/tag/0.3.4) (2018-04-22)
 
 - Fixed deprecation warning in Swift 4.1

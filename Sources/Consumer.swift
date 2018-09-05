@@ -2,7 +2,7 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.3.4
+//  Version 0.3.5
 //
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
@@ -153,7 +153,7 @@ extension Consumer: ExpressibleByStringLiteral, ExpressibleByArrayLiteral {
     }
 }
 
-/// MARK: Character sets
+// MARK: Character sets
 
 public extension Consumer {
     /// Match a character
@@ -188,7 +188,7 @@ public extension Consumer {
     }
 }
 
-/// MARK: Composite rules
+// MARK: Composite rules
 
 public extension Consumer {
     /// Matches a list of zero or more `consumer` instances
@@ -534,11 +534,13 @@ private extension Consumer {
             case let .string(string):
                 let startIndex = index
                 return _skipString(string) ? .token(
-                    string, Location(source: input, range: startIndex ..< index)) : nil
+                    string, Location(source: input, range: startIndex ..< index)
+                ) : nil
             case let .charset(charset):
                 let startIndex = index
                 return _skipCharacter(charset) ? .token(
-                    String(input[startIndex]), Location(source: input, range: startIndex ..< index)) : nil
+                    String(input[startIndex]), Location(source: input, range: startIndex ..< index)
+                ) : nil
             case let .any(consumers):
                 let startIndex = index
                 var firstMatch: Match?
@@ -615,7 +617,8 @@ private extension Consumer {
             case let .replace(consumer, replacement):
                 let startIndex = index
                 return _skip(consumer) ? .token(
-                    replacement, Location(source: input, range: startIndex ..< index)) : nil
+                    replacement, Location(source: input, range: startIndex ..< index)
+                ) : nil
             }
         }
         if let match = _match(self) {

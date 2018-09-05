@@ -33,7 +33,7 @@
 import XCTest
 
 class ConsumerTests: XCTestCase {
-    /// MARK: Primitives
+    // MARK: Primitives
 
     func testString() {
         let parser: Consumer<String> = .string("foo")
@@ -52,7 +52,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertThrowsError(try parser.match(""))
     }
 
-    /// MARK: Combinators
+    // MARK: Combinators
 
     func testAnyOf() {
         let parser: Consumer<String> = .any([.string("foo"), .string("bar")])
@@ -114,7 +114,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(try parser.match("/*******/"), .token("/*******/", .at(0 ..< 9)))
     }
 
-    /// MARK: Standard transforms
+    // MARK: Standard transforms
 
     func testFlattenOptional() {
         let parser: Consumer<String> = .flatten(.optional(.string("foo")))
@@ -177,7 +177,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(try parser.match("foobar"), .token("baz", .at(0 ..< 6)))
     }
 
-    /// MARK: Sugar
+    // MARK: Sugar
 
     func testStringLiteralConstructor() {
         let foo: Consumer<String> = "foo"
@@ -234,7 +234,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(aOrC, .character("b") | .anyCharacter(except: "a", "b", "c"))
     }
 
-    /// MARK: Composite rules
+    // MARK: Composite rules
 
     func testOneOrMore() {
         let parser: Consumer<String> = .oneOrMore(.string("foo"))
@@ -291,7 +291,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertThrowsError(try parser.match("ab c"))
     }
 
-    /// MARK: Errors
+    // MARK: Errors
 
     func testUnmatchedInput() {
         let parser: Consumer<String> = "foo"
@@ -368,7 +368,7 @@ class ConsumerTests: XCTestCase {
         }
     }
 
-    /// MARK: Consumer description
+    // MARK: Consumer description
 
     func testLabelAndReferenceDescription() {
         XCTAssertEqual(Consumer<String>.label("foo", "bar").description, "foo")
@@ -447,7 +447,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertEqual(Consumer<String>.replace("foo", "bar").description, "'foo'")
     }
 
-    /// MARK: Match descriptions
+    // MARK: Match descriptions
 
     func testTokenDescription() {
         XCTAssertEqual(Consumer<String>.Match.token("foo", .at(0 ..< 3)).description, "'foo'")
@@ -487,7 +487,7 @@ class ConsumerTests: XCTestCase {
         """)
     }
 
-    /// MARK: isOptional
+    // MARK: isOptional
 
     func testStringIsNotOptional() {
         let parser: Consumer<String> = .string("abc")
@@ -604,7 +604,7 @@ class ConsumerTests: XCTestCase {
         XCTAssertTrue(parser.isOptional)
     }
 
-    /// MARK: Edge cases with optionals
+    // MARK: Edge cases with optionals
 
     func testReplaceOptional() {
         // Replacement is applied even if nothing is matched
