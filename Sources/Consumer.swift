@@ -537,9 +537,8 @@ private extension Consumer {
                     string, Location(source: input, range: startIndex ..< index)) : nil
             case let .charset(charset):
                 let startIndex = index
-                let string = String(input[startIndex])
                 return _skipCharacter(charset) ? .token(
-                    string, Location(source: input, range: startIndex ..< index)) : nil
+                    String(input[startIndex]), Location(source: input, range: startIndex ..< index)) : nil
             case let .any(consumers):
                 let startIndex = index
                 var firstMatch: Match?
