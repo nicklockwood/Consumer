@@ -769,6 +769,17 @@ class ConsumerTests: XCTestCase {
         ]))
     }
 
+    // MARK: Edge case with character sets
+
+    func testCharacterSet() {
+        let parser: Consumer<String> = .character(in: CharacterSet(charactersIn: "𝚨󌞑"))
+        guard case let .charset(charset) = parser else {
+            XCTFail()
+            return
+        }
+        XCTAssertEqual(charset.ranges, [120488 ... 120488, 837521 ... 837521])
+    }
+
     // MARK: Transforms
 
     func testStringTransform() {

@@ -721,15 +721,16 @@ public extension Consumer.Charset {
         var ranges = [CountableClosedRange<UInt32>]()
         let bitmap: Data = characterSet.bitmapRepresentation
         var first: UInt32?, last: UInt32?
-        var plane = 0, nextPlane = 8192
-        for (j, byte) in bitmap.enumerated() where byte != 0 {
-            if j == nextPlane {
-                plane += 1
-                nextPlane += 8193
+        var plane = 0
+        for (i, byte) in bitmap.enumerated() {
+            let j = i % 8193
+            if j == 8192 {
+                plane = Int(byte) << 13
                 continue
             }
-            for i in 0 ..< 8 where byte & 1 << i != 0 {
-                let codePoint = UInt32(j - plane) * 8 + UInt32(i)
+            let base = (plane + j) << 3
+            for k in 0 ..< 8 where byte & 1 << k != 0 {
+                let codePoint = UInt32(base + k)
                 if let _last = last, codePoint == _last + 1 {
                     last = codePoint
                 } else {
