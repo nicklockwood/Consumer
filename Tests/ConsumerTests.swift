@@ -769,6 +769,20 @@ class ConsumerTests: XCTestCase {
         ]))
     }
 
+    func testInterleavedSequenceFollowedByOptionalSeparator() {
+        let item: Consumer<String> = .character(in: "0" ... "9")
+        let parser: Consumer<String> = [
+            "[", .optional(" "), .interleaved(item, " "), .optional(" "), "]"
+        ]
+        XCTAssertEqual(try parser.match("[ 1 2 3 ]"), .node(nil, [
+            .token("[", .at(0 ..< 1)), .token(" ", .at(1 ..< 2)),
+            .token("1", .at(2 ..< 3)), .token(" ", .at(3 ..< 4)),
+            .token("2", .at(4 ..< 5)), .token(" ", .at(5 ..< 6)),
+            .token("3", .at(6 ..< 7)), .token(" ", .at(7 ..< 8)),
+            .token("]", .at(8 ..< 9)),
+        ]))
+    }
+
     // MARK: Edge case with character sets
 
     func testCharacterSet() {

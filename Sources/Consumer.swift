@@ -196,10 +196,10 @@ public extension Consumer {
         return .optional(.oneOrMore(consumer))
     }
 
-    /// Matches one or more `consumer` instances, separated an instance of `separator`
+    /// Matches one or more `consumer` instances, separated by an instance of `separator`
     /// This is useful for something like a comma-delimited list (without a trailing comma)
     static func interleaved(_ consumer: Consumer, _ separator: Consumer) -> Consumer {
-        return .sequence([.zeroOrMore(.sequence([consumer, separator])), consumer])
+        return .sequence([consumer, .zeroOrMore(.sequence([separator, consumer]))])
     }
 
     /// Matches the `target` consumer, ignoring any instances of the `ignored` consumer
