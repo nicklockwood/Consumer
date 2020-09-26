@@ -4,6 +4,8 @@
 # Xcode
 build/
 html/
+.build
+.swiftpm
 *.pbxuser
 !default.pbxuser
 *.mode1v3

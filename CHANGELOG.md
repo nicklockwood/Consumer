@@ -1,3 +1,8 @@
+## [0.4.0](https://github.com/nicklockwood/Consumer/releases/tag/0.4.0) (2020-09-26)
+
+- Fixed precedence bug in `interleaved` matcher
+- Updated to Swift 5
+
 ## [0.3.5](https://github.com/nicklockwood/Consumer/releases/tag/0.3.5) (2018-09-05)
 
 - Fixed out-of-bounds crash when matching empty input against a charset

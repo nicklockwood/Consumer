@@ -2,8 +2,6 @@
 //  Consumer.swift
 //  Consumer
 //
-//  Version 0.3.5
-//
 //  Created by Nick Lockwood on 01/03/2018.
 //  Copyright © 2018 Nick Lockwood. All rights reserved.
 //
@@ -778,7 +776,8 @@ private extension Consumer.Match {
         case let .node(_, matches):
             guard let source = matches.first?.location?.source,
                 let startIndex = matches.first?.location?.range.lowerBound,
-                let endIndex = matches.last?.location?.range.upperBound else {
+                let endIndex = matches.last?.location?.range.upperBound
+            else {
                 return nil
             }
             return Consumer.Location(source: source, range: startIndex ..< endIndex)
@@ -817,7 +816,8 @@ extension Consumer.Error: CustomStringConvertible {
                 token = String(first)
             } else {
                 while let char = remaining.popFirst(),
-                    !whitespace.contains(char) {
+                    !whitespace.contains(char)
+                {
                     token.append(Character(char))
                 }
             }
@@ -860,7 +860,8 @@ private extension Consumer.Error {
 // Human-readable character
 private func escapeCodePoint(_ codePoint: UInt32, inString _: Bool = false) -> String {
     guard let char = UnicodeScalar(codePoint), [0, 9, 10, 13].contains(codePoint) ||
-        !CharacterSet.controlCharacters.contains(char) else {
+        !CharacterSet.controlCharacters.contains(char)
+    else {
         let hex = String(codePoint, radix: 16, uppercase: true)
         return "U+\(String(repeating: "0", count: 4 - hex.count))\(hex)"
     }

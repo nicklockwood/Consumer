@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		010F06C9251FF03D002613F7 /* XCTestManifests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010F06C8251FF03D002613F7 /* XCTestManifests.swift */; };
 		0148380E204DC754005AA8B6 /* handwritten.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0148380C204DC750005AA8B6 /* handwritten.swift */; };
 		0148380F204DC755005AA8B6 /* handwritten.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0148380C204DC750005AA8B6 /* handwritten.swift */; };
 		015B35A61D8AD15600ABBD4E /* Consumer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 015B359C1D8AD15600ABBD4E /* Consumer.framework */; };
@@ -56,6 +57,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		010F06C8251FF03D002613F7 /* XCTestManifests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = XCTestManifests.swift; sourceTree = "<group>"; };
 		0148380C204DC750005AA8B6 /* handwritten.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = handwritten.swift; sourceTree = "<group>"; };
 		015B359C1D8AD15600ABBD4E /* Consumer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Consumer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		015B359F1D8AD15600ABBD4E /* Consumer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Consumer.h; sourceTree = "<group>"; };
@@ -153,6 +155,7 @@
 			children = (
 				01CF6AF61E1C705F0017139E /* ConsumerTests.swift */,
 				01DD38951ED62F6500F17F46 /* PerformanceTests.swift */,
+				010F06C8251FF03D002613F7 /* XCTestManifests.swift */,
 				015B35AC1D8AD15600ABBD4E /* Info.plist */,
 			);
 			path = Tests;
@@ -232,7 +235,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 015B35B31D8AD15600ABBD4E /* Build configuration list for PBXNativeTarget "ConsumerTests" */;
 			buildPhases = (
+				010F06C6251FEE59002613F7 /* Generate Linux Tests */,
 				015B35A11D8AD15600ABBD4E /* Sources */,
+				010F06C7251FEE8B002613F7 /* Format Code */,
 				015B35A21D8AD15600ABBD4E /* Frameworks */,
 				015B35A31D8AD15600ABBD4E /* Resources */,
 			);
@@ -377,6 +382,45 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		010F06C6251FEE59002613F7 /* Generate Linux Tests */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Generate Linux Tests";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "swift test --generate-linuxmain\n";
+		};
+		010F06C7251FEE8B002613F7 /* Format Code */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Format Code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if which swiftformat >/dev/null; then\n  swiftformat .\nelse\n  echo \"warning: SwiftFormat not installed, download from https://github.com/nicklockwood/SwiftFormat\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		015B35971D8AD15600ABBD4E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -391,6 +435,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				01CF6AFB1E1C71020017139E /* ConsumerTests.swift in Sources */,
+				010F06C9251FF03D002613F7 /* XCTestManifests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -32,6 +32,8 @@
 import Foundation
 import XCTest
 
+#if os(iOS)
+
 class PerformanceTests: XCTestCase {
     // MARK: Descriptions
 
@@ -186,3 +188,5 @@ private let json = """
     "taglib-uri": "cofax.tld",
     "taglib-location": "/WEB-INF/tlds/cofax.tld"}}}
 """
+
+#endif

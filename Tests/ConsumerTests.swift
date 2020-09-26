@@ -772,7 +772,7 @@ class ConsumerTests: XCTestCase {
     func testInterleavedSequenceFollowedByOptionalSeparator() {
         let item: Consumer<String> = .character(in: "0" ... "9")
         let parser: Consumer<String> = [
-            "[", .optional(" "), .interleaved(item, " "), .optional(" "), "]"
+            "[", .optional(" "), .interleaved(item, " "), .optional(" "), "]",
         ]
         XCTAssertEqual(try parser.match("[ 1 2 3 ]"), .node(nil, [
             .token("[", .at(0 ..< 1)), .token(" ", .at(1 ..< 2)),
