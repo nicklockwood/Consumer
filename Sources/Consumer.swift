@@ -281,32 +281,6 @@ extension Consumer: CustomStringConvertible {
             return consumer.description
         }
     }
-
-    /// Equatable implementation
-    public static func == (lhs: Consumer, rhs: Consumer) -> Bool {
-        switch (lhs, rhs) {
-        case let (.string(lhs), .string(rhs)):
-            return lhs == rhs
-        case let (.charset(lhs), .charset(rhs)):
-            return lhs == rhs
-        case let (.any(lhs), .any(rhs)),
-             let (.sequence(lhs), .sequence(rhs)):
-            return lhs == rhs
-        case let (.optional(lhs), .optional(rhs)),
-             let (.oneOrMore(lhs), .oneOrMore(rhs)),
-             let (.flatten(lhs), .flatten(rhs)),
-             let (.discard(lhs), .discard(rhs)):
-            return lhs == rhs
-        case let (.replace(lhs), .replace(rhs)):
-            return lhs.0 == rhs.0 && lhs.1 == rhs.1
-        case let (.label(lhs), .label(rhs)):
-            return lhs.0 == rhs.0 && lhs.1 == rhs.1
-        case let (.reference(lhs), .reference(rhs)):
-            return lhs == rhs
-        default:
-            return false
-        }
-    }
 }
 
 private extension Consumer {
@@ -711,13 +685,6 @@ private extension Consumer.Location {
 // MARK: Charset implementation
 
 public extension Consumer.Charset {
-    var hashValue: Int { return characterSet.hashValue }
-
-    // Equatable implementation
-    static func == (lhs: Consumer.Charset, rhs: Consumer.Charset) -> Bool {
-        return lhs.inverted == rhs.inverted && lhs.characterSet == rhs.characterSet
-    }
-
     // Note: this can be expensive to calculate
     var ranges: [CountableClosedRange<UInt32>] {
         var ranges = [CountableClosedRange<UInt32>]()
@@ -800,18 +767,6 @@ extension Consumer.Match: CustomStringConvertible {
             }
         }
         return _description(self, "")
-    }
-
-    /// Equatable implementation
-    public static func == (lhs: Consumer.Match, rhs: Consumer.Match) -> Bool {
-        switch (lhs, rhs) {
-        case let (.token(lhs), .token(rhs)):
-            return lhs.0 == rhs.0 && lhs.1 == rhs.1
-        case let (.node(lhs), .node(rhs)):
-            return lhs.0 == rhs.0 && lhs.1 == rhs.1
-        case (.token, _), (.node, _):
-            return false
-        }
     }
 }
 
