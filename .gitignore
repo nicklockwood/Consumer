@@ -21,3 +21,6 @@ DerivedData
 *.hmap
 *.ipa
 *.dot
+
+# Generated
+/Tests/compiled.swift

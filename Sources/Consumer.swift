@@ -651,6 +651,11 @@ extension Consumer.Location: CustomStringConvertible {
         return lhs.range == rhs.range
     }
 
+    // Convenience constructor, used by compiled parsers
+    public static func at(_ range: Range<String.Index>, in source: String.UnicodeScalarView) -> Consumer.Location {
+        return Consumer.Location(source: source, range: range)
+    }
+
     // Convenience constructor, used for testing
     public static func at(_ range: CountableRange<Int>) -> Consumer.Location {
         let source = String(repeating: " ", count: range.upperBound).unicodeScalars

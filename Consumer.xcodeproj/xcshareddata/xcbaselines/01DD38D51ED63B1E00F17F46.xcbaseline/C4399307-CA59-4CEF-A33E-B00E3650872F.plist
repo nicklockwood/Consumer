@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>classNames</key>
+	<dict>
+		<key>PerformanceTests</key>
+		<dict>
+			<key>testGeneratedJSONConsumer()</key>
+			<dict>
+				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
+				<dict>
+					<key>baselineAverage</key>
+					<real>0.015236</real>
+					<key>baselineIntegrationDisplayName</key>
+					<string>6 Mar 2018 at 13:32:21</string>
+				</dict>
+			</dict>
+			<key>testHandWrittenJSONConsumer()</key>
+			<dict>
+				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
+				<dict>
+					<key>baselineAverage</key>
+					<real>0.00074211</real>
+					<key>baselineIntegrationDisplayName</key>
+					<string>6 Mar 2018 at 13:32:21</string>
+				</dict>
+			</dict>
+			<key>testJSONConsumer()</key>
+			<dict>
+				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
+				<dict>
+					<key>baselineAverage</key>
+					<real>0.011089</real>
+					<key>baselineIntegrationDisplayName</key>
+					<string>6 Mar 2018 at 13:32:21</string>
+				</dict>
+			</dict>
+			<key>testJSONSerialization()</key>
+			<dict>
+				<key>com.apple.XCTPerformanceMetric_WallClockTime</key>
+				<dict>
+					<key>baselineAverage</key>
+					<real>0.00019594</real>
+					<key>baselineIntegrationDisplayName</key>
+					<string>6 Mar 2018 at 13:32:21</string>
+				</dict>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>

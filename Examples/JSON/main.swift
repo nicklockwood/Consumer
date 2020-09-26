@@ -19,12 +19,31 @@ let input = """
 }
 """
 
-do {
-    // Evaluate json using interpreted parser
-    print(try parseJSON(input))
-
-    // Evaluate json using handwritten parser
-    print(try parseJSON2(input))
-} catch {
-    print(error)
+@discardableResult
+func time<T>(_ block: () throws -> T) -> T {
+    let time = CFAbsoluteTimeGetCurrent()
+    var result: Any = ()
+    do {
+        result = try block()
+    } catch {
+        print(error)
+    }
+    print(Int((CFAbsoluteTimeGetCurrent() - time) * 1000), terminator: " ms\n\n")
+    return result as! T
 }
+
+// Evaluate json using interpreted parser
+time { print("interpreted:", try parseJSON(input)) }
+
+// Evaluate json using handwritten parser
+time { print("handwritten:", try parseJSON2(input)) }
+
+// Evaluate json using compiled parser
+time { print("compiled:", try parseJSON3(input)!) }
+
+// Update compiled parser
+print("Recompiling parser...")
+let compiledSwiftFile = URL(fileURLWithPath: #file)
+    .deletingLastPathComponent().appendingPathComponent("compiled.swift")
+let parser = time { compileJSONParser() }
+try parser.write(to: compiledSwiftFile, atomically: true, encoding: .utf8)
